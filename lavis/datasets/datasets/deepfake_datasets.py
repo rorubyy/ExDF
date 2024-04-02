@@ -6,7 +6,6 @@ import json
 from collections import OrderedDict
 
 
-
 class __DisplMixin:
     def displ_item(self, index):
         sample, ann = self.__getitem__(index), self.annotation[index]
@@ -18,8 +17,10 @@ class __DisplMixin:
                 "question_id": ann["question_id"],
                 "answers": "; ".join(ann["answer"]),
                 "image": sample["image"],
+                "gt": sample["gt"],
             }
         )
+
 
 class DeepfakeDataset(BaseDataset):
     def __init__(self, vis_processor, text_processor, vis_root, ann_paths):
@@ -30,15 +31,20 @@ class DeepfakeDataset(BaseDataset):
 
         image_path = os.path.join(self.vis_root, ann["image"])
         image = Image.open(image_path).convert("RGB")
+        gt_path = os.path.join(self.vis_root, ann["gt"])
+        gt = Image.open(gt_path).convert("RGB")
 
         image = self.vis_processor(image)
-        text_input = self.text_processor(ann["text_input"])
+        gt = self.vis_processor(gt)
+        # text_input = self.text_processor(ann["text_input"])
+        text_input = self.text_processor("Is this photo real? If not,why? (The highlighted areas in the photo represent potential modifications or artificial elements.)")
         text_output = self.text_processor(ann["text_output"])
 
-        weights = [1]  
+        weights = [1]
 
         return {
             "image": image,
+            "gt": gt,
             "text_input": text_input,
             "text_output": text_output,
             "weights": weights,
@@ -60,15 +66,20 @@ class DeepfakeEvalDataset(BaseDataset, __DisplMixin):
 
         image_path = os.path.join(self.vis_root, ann["image"])
         image = Image.open(image_path).convert("RGB")
+        gt_path = os.path.join(self.vis_root, ann["gt"])
+        gt = Image.open(gt_path).convert("RGB")
+
 
         image = self.vis_processor(image)
+        gt = self.vis_processor(gt)
+
         text_input = self.text_processor(ann["text_input"])
         text_output = self.text_processor(ann["text_output"])
-
 
         return {
             "image": image,
             "text_input": text_input,
+            "gt": gt,
             "text_output": text_output,
             "question_id": ann["question_id"],
             "instance_id": ann["instance_id"],

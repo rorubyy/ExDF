@@ -18,8 +18,9 @@ def calculate_bertscore(gts, res):
 
 
 def simplify_answer(answer):
-    fake = "The photo is fake"
-    return 1 if fake.lower() in answer.lower() else 0
+    fake = "is fake"
+    fake1 = "not real"
+    return 1 if fake.lower() in answer.lower() or fake1.lower() in answer.lower() else 0
 
 
 def load_data(file_path, increment_id=False):
@@ -49,12 +50,12 @@ def calculate_ap(gts, res):
 
 def main():
     ans_files = [
-        "/storage1/ruby/LAVIS/lavis/output/BLIP2/dd-vqa/sbi/real.json",
-        "/storage1/ruby/LAVIS/lavis/output/BLIP2/dd-vqa/sbi/sbi.json",
+        "/storage1/ruby/LAVIS/lavis/output/BLIP2/dd-vqa-gtmask/sbi/real.json",
+        "/storage1/ruby/LAVIS/lavis/output/BLIP2/dd-vqa-gtmask/sbi/sladd.json",
     ]
     gt_files = [
         "/storage1/ruby/LAVIS/deepfake/annotations/test/ffhq-real.json",
-        "/storage1/ruby/LAVIS/deepfake/annotations/test/ffhq-sbi.json",
+        "/storage1/ruby/LAVIS/deepfake/annotations/test/ffhq-sladd.json",
     ]
 
     gts, res = {}, {}

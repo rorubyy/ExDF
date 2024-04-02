@@ -23,13 +23,13 @@ def arg_parser():
     parser.add_argument(
         "--vis_root",
         type=str,
-        default="/storage1/ruby/LAVIS/deepfake/annotations/test/ffhq-real.json",
+        default="/storage1/ruby/LAVIS/deepfake/annotations/test/ffhq-sladd.json",
         help="The path to the image directory.",
     )
     parser.add_argument(
         "--ann_paths",
         type=str,
-        default="/storage1/ruby/LAVIS/deepfake/annotations/test/ffhq-real.json",
+        default="/storage1/ruby/LAVIS/deepfake/annotations/test/ffhq-sladd.json",
         help="The path to the annotation directory.",
     )
     parser.add_argument(
@@ -38,7 +38,7 @@ def arg_parser():
     parser.add_argument(
         "--output_json",
         type=str,
-        default="/storage1/ruby/LAVIS/lavis/output/BLIP2/dd-vqa/sbi/real.json",
+        default="/storage1/ruby/LAVIS/lavis/output/BLIP2/dd-vqa-gtmask/sbi/sladd.json",
         help="The path to the output json file.",
     )
     parser.add_argument("--device", type=str, default="cuda")
@@ -77,20 +77,27 @@ def main():
     results = []
     for item in tqdm(dataloader):
         image = item["image"].to(device)
+        gt = item["gt"].to(device)
         text_input = item["text_input"]
         samples = {
             "image": image,
+            "gt": gt,
             "text_input": text_input,
             "question_id": item["question_id"],
         }
 
         pred_qa_pairs = vqa_task.valid_step(model, samples)
+        # candidates = ["yes", "no"]
+        # result = model.predict_class(samples=samples, candidates=candidates)
+
         print(pred_qa_pairs)
-        if isinstance(pred_qa_pairs, list) and all(isinstance(item, dict) for item in pred_qa_pairs):
-            results.extend(pred_qa_pairs) 
+        if isinstance(pred_qa_pairs, list) and all(
+            isinstance(item, dict) for item in pred_qa_pairs
+        ):
+            results.extend(pred_qa_pairs)
         else:
             results.append(pred_qa_pairs)
-        
+
     with open(args.output_json, "w") as f:
         json.dump(results, f, indent=4)
 

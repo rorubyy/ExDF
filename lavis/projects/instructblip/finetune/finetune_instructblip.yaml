@@ -48,7 +48,7 @@ run:
   accum_grad_iters: 1
 
   seed: 42
-  output_dir: "output/BLIP2/dd-vqa"
+  output_dir: "output/BLIP2/dd-vqa-gtmask"
 
   amp: False
   resume_ckpt_path: null
