@@ -23,13 +23,13 @@ def arg_parser():
     parser.add_argument(
         "--vis_root",
         type=str,
-        default="/storage1/ruby/LAVIS/deepfake/annotations/test/ffhq-real.json",
+        default="/storage1/ruby/LAVIS/deepfake/annotations/test/ffhq-sladd.json",
         help="The path to the image directory.",
     )
     parser.add_argument(
         "--ann_paths",
         type=str,
-        default="/storage1/ruby/LAVIS/deepfake/annotations/test/ffhq-real.json",
+        default="/storage1/ruby/LAVIS/deepfake/annotations/test/ffhq-sladd.json",
         help="The path to the annotation directory.",
     )
     parser.add_argument(
@@ -86,10 +86,13 @@ def main():
 
         pred_qa_pairs = vqa_task.valid_step(model, samples)
         print(pred_qa_pairs)
-        if isinstance(pred_qa_pairs, list) and all(isinstance(item, dict) for item in pred_qa_pairs):
-            results.extend(pred_qa_pairs) 
-        else:
-            results.append(pred_qa_pairs)
+        # class_samples = {"image": image, "prompt": "Is this photo real?"}
+        # pred_class = vqa_task.valid_class_step(model, class_samples)
+        # print(pred_class)
+        # if isinstance(pred_qa_pairs, list) and all(isinstance(item, dict) for item in pred_qa_pairs):
+        #     results.extend(pred_qa_pairs) 
+        # else:
+        #     results.append(pred_qa_pairs)
         
     with open(args.output_json, "w") as f:
         json.dump(results, f, indent=4)

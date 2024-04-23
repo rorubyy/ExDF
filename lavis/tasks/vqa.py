@@ -113,6 +113,17 @@ class VQATask(BaseTask):
             pred_qa_pairs.append({"question_id": ques_id, "answer": answer})
 
         return pred_qa_pairs
+    
+    def valid_class_step(self, model, samples):
+        candidates = ["yes", "no"]
+
+        answers = model.predict_class(
+            samples=samples,
+            candidates = candidates,
+        )
+        return answers
+
+
 
     def after_evaluation(self, val_result, split_name, mode=None, **kwargs):
         result_file = self.save_result(
@@ -166,9 +177,13 @@ class VQATask(BaseTask):
         # TODO change to deepfake explination
         else:
             if mode == "val":
-                ques_file = "/storage1/ruby/LAVIS/deepfake/annotations/test/ffhq-sladd.json"
+                ques_file = (
+                    "/storage1/ruby/LAVIS/deepfake/ann/ip2p-test.json"
+                )
             else:
-                ques_file = "/storage1/ruby/LAVIS/deepfake/annotations/test/ffhq-sladd.json"
+                ques_file = (
+                    "/storage1/ruby/LAVIS/deepfake/ann/ip2p-test.json"
+                )
 
             vqa = CustomVQA(annotation_file=ques_file)
             vqa_result = vqa.loadRes_custom(resFile=result_file, quesFile=ques_file)

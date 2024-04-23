@@ -15,6 +15,8 @@ from lavis.common.registry import registry
 from lavis.models.blip2_models.blip2 import Blip2Base, disabled_train
 from lavis.models.blip2_models.soft_embedding import SoftEmbedding
 
+import torch.nn.functional as F
+
 @registry.register_model("blip2_vicuna_instruct")
 class Blip2VicunaInstruct(Blip2Base):
     """
@@ -108,9 +110,22 @@ class Blip2VicunaInstruct(Blip2Base):
             if 'learned_embedding' in name:
                 param.requires_grad = True 
 
+
+        # ----- new ----- classification 
+        Qformer_hidden_size = self.Qformer.config.hidden_size
+        llm_hidden_size = self.llm_model.config.hidden_size
         self.llm_proj = nn.Linear(
-            self.Qformer.config.hidden_size, self.llm_model.config.hidden_size
+            Qformer_hidden_size, llm_hidden_size
         )
+        num_classes = 2
+        self.cls_head = nn.Sequential(
+            nn.Linear(Qformer_hidden_size, Qformer_hidden_size),
+            nn.ReLU(),
+            nn.Linear(Qformer_hidden_size, num_classes),
+        )
+        # ----------
+
+
 
         self.max_txt_len = max_txt_len
         self.max_output_txt_len = max_output_txt_len
@@ -148,12 +163,6 @@ class Blip2VicunaInstruct(Blip2Base):
         return llm_tokens, input_part_targets_len
 
     def forward(self, samples):
-        # RUBY edit for sam
-        # print('-----------------')
-        # print(samples["text_input"])
-        # print(samples["text_output"])
-        # print('-----------------')
-
         image = samples["image"]
         with self.maybe_autocast():
             image_embeds = self.ln_vision(self.visual_encoder(image))
@@ -179,7 +188,6 @@ class Blip2VicunaInstruct(Blip2Base):
             Qformer_atts = torch.cat([query_atts, extended_mask],dim=1)
             # Qformer_atts = torch.cat([query_atts, text_Qformer.attention_mask],dim=1)
 
-
             query_output = self.Qformer.bert(
                 text_Qformer.input_ids,
                 attention_mask=Qformer_atts,
@@ -195,8 +203,13 @@ class Blip2VicunaInstruct(Blip2Base):
                 encoder_attention_mask=image_atts,
                 return_dict=True,
             )
+            
+        # ----- new ----- classification
+        classification_targets = samples["label"]
 
-
+        classification_prediction = self.cls_head(query_output.last_hidden_state[:, 0, :])
+        classification_loss = F.cross_entropy(classification_prediction, classification_targets)
+        # ----------
 
         inputs_llm = self.llm_proj(query_output.last_hidden_state[:,:query_tokens.size(1),:])
         atts_llm = torch.ones(inputs_llm.size()[:-1], dtype=torch.long).to(image.device)
@@ -262,6 +275,7 @@ class Blip2VicunaInstruct(Blip2Base):
         extract_attention_mask = torch.ones(llm_tokens['input_ids'].size(0), self.llm_model.soft_embedding.n_tokens, device=llm_tokens['input_ids'].device)
         attention_mask = torch.cat([atts_llm, extract_attention_mask, llm_tokens['attention_mask']], dim=1)
         # attention_mask = torch.cat([atts_llm, llm_tokens['attention_mask']], dim=1)
+        
 
         with self.maybe_autocast():
             outputs = self.llm_model(
@@ -270,9 +284,10 @@ class Blip2VicunaInstruct(Blip2Base):
                 return_dict=True,
                 labels=targets,
             )
-        # TODO
-        loss = outputs.loss
+        vlm_loss = outputs.loss
 
+        # ----- new ----- classification
+        loss = vlm_loss + classification_loss
         return {"loss": loss}
 
     @torch.no_grad()

@@ -79,10 +79,19 @@ class InstructBLIP():
                 image = item['image'].to(self.device)
                 question = item['text_input']
                 samples = {"image": image, "text_input": question}
-                question_id = item["question_id"]
-                ans = self.model.predict_answers(samples=samples, inference_method="generate")
-                print(ans)
-                answers_list.append({"file_name": question_id.item(), "answer": ans})
+                
+                samples = {"image": image, "prompt": question}
+                candidates = ["yes", "no"]
+                ans = self.model.predict_class(samples=samples, candidates=candidates)
+                pred_label = ["Real" if candidates[list(a).index(0)]=="yes" else "Fake" for a in ans]
+                # question_id = item["question_id"]
+                # ans = self.model.predict_answers(samples=samples, inference_method="generate")
+                # print(ans)
+                # samples = {"image": image, "prompt": "Is this photo real?"}
+                # candidates = ["yes", "no"]
+                # ans = self.model.predict_class(samples=samples, candidates=candidates)
+                # print(ans)
+                # answers_list.append({"file_name": question_id.item(), "answer": ans})
                 
         with open('answers.json', 'w') as json_file:
             json.dump(answers_list, json_file)
@@ -164,8 +173,8 @@ class InstructBLIP():
     
 def arg_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--vis_root', type=str, default='/storage1/ruby/LAVIS/deepfake/annotations/test/ffhq-sladd.json', help='The path to the image directory.')
-    parser.add_argument('--ann_paths', type=str, default='/storage1/ruby/LAVIS/deepfake/annotations/test/ffhq-sladd.json', help='The path to the annotation directory.')
+    parser.add_argument('--vis_root', type=str, default='/storage1/ruby/LAVIS/deepfake/annotations/test/ffhq-real.json', help='The path to the image directory.')
+    parser.add_argument('--ann_paths', type=str, default='/storage1/ruby/LAVIS/deepfake/annotations/test/ffhq-real.json', help='The path to the annotation directory.')
     parser.add_argument('--log', type=str, default="log/log.txt", help='Path to the log file.')
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--model_name', type=str, default='blip2_vicuna_instruct')

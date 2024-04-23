@@ -11,7 +11,7 @@ model:
   freeze_vit: True
   
   pretrained: "https://storage.googleapis.com/sfr-vision-language-research/LAVIS/models/InstructBLIP/instruct_blip_vicuna7b_trimmed.pth"
-  finetuned: "" 
+  # finetuned: "/storage1/ruby/AntifakePrompt/lavis/output/BLIP2/Textual_inv/20240208210/checkpoint_best.pth" 
 
 datasets:
     deepfake:
