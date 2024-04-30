@@ -17,17 +17,21 @@ def calculate_bertscore(gts, res):
     print(f"BERTScore F1: {F1.mean().item()}")
 
 
+
 def simplify_answer(answer):
-    fake = "The photo is fake"
+    # real= "yes"
+    fake = "the image is fake"
     return 1 if fake.lower() in answer.lower() else 0
+    # return 1 if answer.lower().startswith("no") else 0
+    # return 0 if real.lower() in answer.lower() else 1
 
 
 def load_data(file_path, increment_id=False):
     with open(file_path, "r") as f:
         data = json.load(f)
-    if increment_id:
-        for item in data:
-            item["question_id"] += 5000
+    # if increment_id:
+    #     for item in data:
+    #         item["question_id"] += 5000
     return data
 
 
@@ -48,13 +52,13 @@ def calculate_ap(gts, res):
 
 
 def main():
-    ans_files = [
-        "/storage1/ruby/LAVIS/lavis/output/BLIP2/dd-vqa/sbi/real.json",
-        "/storage1/ruby/LAVIS/lavis/output/BLIP2/dd-vqa/sbi/sbi.json",
-    ]
     gt_files = [
-        "/storage1/ruby/LAVIS/deepfake/annotations/test/ffhq-real.json",
-        "/storage1/ruby/LAVIS/deepfake/annotations/test/ffhq-sbi.json",
+        "/storage1/ruby/LAVIS/deepfake/ann/mfg-test.json",
+        "/storage1/ruby/LAVIS/deepfake/ann/real-test.json"
+    ]
+    ans_files = [
+        "/storage1/ruby/LAVIS/lavis/output/BLIP2/dd-vqa/20240423173-InstructBLIP/mfg.json",
+        "/storage1/ruby/LAVIS/lavis/output/BLIP2/dd-vqa/20240424174/real.json"
     ]
 
     gts, res = {}, {}
@@ -65,21 +69,27 @@ def main():
         gts[item["question_id"]] = [item["text_output"]]
     for item in data2:
         res[item["question_id"]] = [item["answer"]]
+ 
+    # data3 = load_data(gt_files[1], increment_id=True)
+    # data4 = load_data(ans_files[1], increment_id=True) 
+          
+    # max_id_data1 = max(item["question_id"] for item in data1)
+    # increment_value = max_id_data1 + 1  
 
-    # Load and process the second set of files with incremented IDs
-    data3 = load_data(gt_files[1], increment_id=True)
-    data4 = load_data(ans_files[1], increment_id=True)
-    for item in data3:
-        gts[item["question_id"]] = [item["text_output"]]
-    for item in data4:
-        res[item["question_id"]] = [item["answer"]]
+    # for item in data3:
+    #     item["question_id"] += increment_value
+    #     gts[item["question_id"]] = [item["text_output"]]
+    # for item in data4:
+    #     item["question_id"] += increment_value
+    #     res[item["question_id"]] = [item["answer"]]
 
     calculate_bertscore(gts, res)
 
-    # Calculate binary accuracy
-    for item in data1 + data3:
+    for item in data1:
+    # for item in data1+data3:
         gts[item["question_id"]] = simplify_answer(item["text_output"])
-    for item in data2 + data4:
+    for item in data2:
+    # for item in data2+data4:
         res[item["question_id"]] = simplify_answer(item["answer"])
     calculate_acc(gts, res)
     calculate_ap(gts, res)

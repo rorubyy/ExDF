@@ -101,6 +101,44 @@ class BlipQuestionProcessor(BaseProcessor):
         return question
 
 
+@registry.register_processor("blip_question_textinv")
+class BlipQuestionProcessorTextInversion(BaseProcessor):
+    def __init__(self, prompt, prompt_freeze, pseudo_word, max_words=50):
+        self.prompt = prompt
+        self.prompt_freeze = prompt_freeze
+        self.pseudo_word = pseudo_word
+        self.max_words = max_words
+
+    def __call__(self, question):
+        return self.pre_question(question)
+
+    @classmethod
+    def from_config(cls, cfg=None):
+        if cfg is None:
+            cfg = OmegaConf.create()
+
+        prompt = cfg.get("prompt")
+        prompt_freeze = cfg.get("prompt_freeze", "Is this photo real?")
+        pseudo_word = cfg.get("pseudo_word")
+        max_words = cfg.get("max_words", 50)
+        
+        return cls(prompt=prompt,
+                   prompt_freeze=prompt_freeze,
+                   pseudo_word=pseudo_word,
+                   max_words=max_words)
+
+    def pre_question(self, question):
+        question = question.lower()
+        question = question.rstrip(" ")
+
+        # truncate question
+        question_words = question.split(" ")
+        if len(question_words) > self.max_words:
+            question = " ".join(question_words[: self.max_words])
+
+        return question
+
+
 @registry.register_processor("blip_image_train")
 class BlipImageTrainProcessor(BlipImageBaseProcessor):
     def __init__(

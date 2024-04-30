@@ -1,0 +1,73 @@
+ # Copyright (c) 2022, salesforce.com, inc.
+ # All rights reserved.
+ # SPDX-License-Identifier: BSD-3-Clause
+ # For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+
+model:
+  arch: blip2_vicuna_instruct_textinv
+  load_finetuned: True
+  load_pretrained: True
+
+  pretrained: "https://storage.googleapis.com/sfr-vision-language-research/LAVIS/models/InstructBLIP/instruct_blip_vicuna7b_trimmed.pth"
+  # finetuned: "/storage1/ruby/AntifakePrompt/lavis/output/BLIP2/Textual_inv/20240208210/checkpoint_best.pth"
+  finetuned: "/storage1/ruby/LAVIS/lavis/output/BLIP2/dd-vqa/20240424174/checkpoint_best.pth"
+
+  # vit encoder
+  image_size: 224
+  drop_path_rate: 0
+  use_grad_checkpoint: False
+  vit_precision: "fp16"
+  freeze_vit: True
+
+  # Q-Former
+  num_query_token: 32
+
+  # path to Vicuna checkpoint
+  llm_model: "/storage1/ruby/AntifakePrompt/lavis/llm/vicuna-7b/snapshots/9d8eea215e00b388a22e8f050768ea8911d41f1d"
+
+  # generation configs
+  # prompt: "Is this photo real [*]?"
+  prompt: "Is this photo real? If not, why? [*]"
+  # prompt: "[*] Is this photo real?"
+  # prompt: "Is this photo [*]?"
+  pseudo_word: "[*]"
+  # init_word: "real"
+
+
+preprocess:
+    vis_processor:
+        train:
+          name: "blip2_image_train"
+          image_size: 224
+          # COCO+SD2+SD2IP (90K)
+          mean: [0.4730, 0.4499, 0.4129]
+          std: [0.2780, 0.2713, 0.2872]
+          # # COCO+SD2+SD2IP+LaMa (90K)
+          # mean: [0.4722, 0.4490, 0.4117]
+          # std: [0.2772, 0.2708, 0.2867]
+        eval:
+          name: "blip_image_eval"
+          image_size: 224
+          # COCO+SD2+SD2IP (90K)
+          mean: [0.4730, 0.4499, 0.4129]
+          std: [0.2780, 0.2713, 0.2872]
+          # # COCO+SD2+SD2IP+LaMa (90K)
+          # mean: [0.4722, 0.4490, 0.4117]
+          # std: [0.2772, 0.2708, 0.2867]
+    text_processor:
+        train:
+          name: "blip_question_textinv"
+          # prompt: "Is this photo real [*]?"
+          prompt: "Is this image real? If not, why? [*]"
+
+          # prompt: "[*] Is this photo real?"
+          # prompt: "Is this photo [*]?"
+          pseudo_word: "[*]"
+        eval:
+          name: "blip_question_textinv"
+          # prompt: "Is this photo real [*]?"
+          prompt: "Is this image real? If not, why? [*]"
+
+          # prompt: "[*] Is this photo real?"
+          # prompt: "Is this photo [*]?"
+          pseudo_word: "[*]"

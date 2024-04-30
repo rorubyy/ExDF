@@ -23,13 +23,13 @@ def arg_parser():
     parser.add_argument(
         "--vis_root",
         type=str,
-        default="/storage1/ruby/LAVIS/deepfake/annotations/test/ffhq-real.json",
+        default="/storage1/ruby/LAVIS/deepfake/ann/mfg-test.json",
         help="The path to the image directory.",
     )
     parser.add_argument(
         "--ann_paths",
         type=str,
-        default="/storage1/ruby/LAVIS/deepfake/annotations/test/ffhq-real.json",
+        default="/storage1/ruby/LAVIS/deepfake/ann/mfg-test.json",
         help="The path to the annotation directory.",
     )
     parser.add_argument(
@@ -38,7 +38,7 @@ def arg_parser():
     parser.add_argument(
         "--output_json",
         type=str,
-        default="/storage1/ruby/LAVIS/lavis/output/BLIP2/dd-vqa/sbi/real.json",
+        default="/storage1/ruby/LAVIS/lavis/output/BLIP2/dd-vqa/20240423173-InstructBLIP/mfg.json",
         help="The path to the output json file.",
     )
     parser.add_argument("--device", type=str, default="cuda")
@@ -62,7 +62,7 @@ def main():
     dataset = DeepfakeEvalDataset(
         vis_processors["eval"], txt_processors["eval"], args.vis_root, [args.ann_paths]
     )
-    dataloader = DataLoader(dataset=dataset, batch_size=1, shuffle=False)
+    dataloader = DataLoader(dataset=dataset, batch_size=6, shuffle=False)
 
     vqa_task = VQATask(
         num_beams=3,
@@ -71,7 +71,7 @@ def main():
         evaluate=True,
         num_ans_candidates=128,
         inference_method="rank",
-        prompt="Is this photo real? If not, why?",
+        prompt="Is this image real? If not, why?",
     )
 
     results = []
