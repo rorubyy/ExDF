@@ -23,13 +23,13 @@ def arg_parser():
     parser.add_argument(
         "--vis_root",
         type=str,
-        default="/storage1/ruby/LAVIS/deepfake/annotations/test/ffhq-sladd.json",
+        default="/storage1/ruby/LAVIS/deepfake/ann/sbi-test.json",
         help="The path to the image directory.",
     )
     parser.add_argument(
         "--ann_paths",
         type=str,
-        default="/storage1/ruby/LAVIS/deepfake/annotations/test/ffhq-sladd.json",
+        default="/storage1/ruby/LAVIS/deepfake/ann/sbi-test.json",
         help="The path to the annotation directory.",
     )
     parser.add_argument(
@@ -38,7 +38,7 @@ def arg_parser():
     parser.add_argument(
         "--output_json",
         type=str,
-        default="/storage1/ruby/LAVIS/lavis/output/BLIP2/dd-vqa/sbi/real.json",
+        default="/storage1/ruby/LAVIS/lavis/output/BLIP2/dd-vqa/20240430112/sbi.json",
         help="The path to the output json file.",
     )
     parser.add_argument("--device", type=str, default="cuda")
@@ -71,7 +71,7 @@ def main():
         evaluate=True,
         num_ans_candidates=128,
         inference_method="rank",
-        prompt="Is this photo real? If not, why?",
+        prompt="Is this image real? If not, why?",
     )
 
     results = []
@@ -82,18 +82,19 @@ def main():
             "image": image,
             "text_input": text_input,
             "question_id": item["question_id"],
+            "label": item["label"],
         }
 
         pred_qa_pairs = vqa_task.valid_step(model, samples)
         print(pred_qa_pairs)
-        # class_samples = {"image": image, "prompt": "Is this photo real?"}
+        # class_samples = {"image": image, "prompt": "Is this image real?"}
         # pred_class = vqa_task.valid_class_step(model, class_samples)
         # print(pred_class)
         # if isinstance(pred_qa_pairs, list) and all(isinstance(item, dict) for item in pred_qa_pairs):
-        #     results.extend(pred_qa_pairs) 
+        #     results.extend(pred_qa_pairs)
         # else:
-        #     results.append(pred_qa_pairs)
-        
+        results.append(pred_qa_pairs[0])
+
     with open(args.output_json, "w") as f:
         json.dump(results, f, indent=4)
 

@@ -18,6 +18,7 @@ class __DisplMixin:
                 "question_id": ann["question_id"],
                 "answers": "; ".join(ann["answer"]),
                 "image": sample["image"],
+                "label": sample["label"],
             }
         )
 
@@ -42,6 +43,7 @@ class DeepfakeDataset(BaseDataset):
             "text_input": text_input,
             "text_output": text_output,
             "weights": weights,
+            "label": ann["label"],
         }
 
 
@@ -72,4 +74,5 @@ class DeepfakeEvalDataset(BaseDataset, __DisplMixin):
             "text_output": text_output,
             "question_id": ann["question_id"],
             "instance_id": ann["instance_id"],
+            "label": ann["label"],
         }
