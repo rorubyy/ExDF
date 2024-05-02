@@ -23,13 +23,13 @@ def arg_parser():
     parser.add_argument(
         "--vis_root",
         type=str,
-        default="/storage1/ruby/LAVIS/deepfake/ann/sbi-test.json",
+        default="/storage1/ruby/LAVIS/deepfake/ann/iDiff-test.json",
         help="The path to the image directory.",
     )
     parser.add_argument(
         "--ann_paths",
         type=str,
-        default="/storage1/ruby/LAVIS/deepfake/ann/sbi-test.json",
+        default="/storage1/ruby/LAVIS/deepfake/ann/iDiff-test.json",
         help="The path to the annotation directory.",
     )
     parser.add_argument(
@@ -38,7 +38,7 @@ def arg_parser():
     parser.add_argument(
         "--output_json",
         type=str,
-        default="/storage1/ruby/LAVIS/lavis/output/BLIP2/dd-vqa/20240430112/sbi.json",
+        default="/storage1/ruby/LAVIS/lavis/output/BLIP2/dd-vqa/20240501150/iDiff_1.json",
         help="The path to the output json file.",
     )
     parser.add_argument("--device", type=str, default="cuda")

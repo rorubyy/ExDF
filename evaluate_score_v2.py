@@ -22,7 +22,7 @@ def simplify_answer(answer):
     # real= "yes"
     # fake = "no the image is fake"
     # return 1 if fake.lower() in answer.lower() else 0
-    return 1 if answer.lower().startswith("no") else 0
+    return 1 if answer.lower().startswith("no") or answer.lower().startswith("the image is not real") or answer.lower().startswith("the image is fake") else 0
     # return 0 if real.lower() in answer.lower() else 1
 
 
@@ -53,12 +53,12 @@ def calculate_ap(gts, res):
 
 def main():
     gt_files = [
-        "/storage1/ruby/LAVIS/deepfake/ann/sbi-test.json",
+        "/storage1/ruby/LAVIS/deepfake/ann/sladd-test.json",
         "/storage1/ruby/LAVIS/deepfake/ann/real-test.json"
     ]
     ans_files = [
-        "/storage1/ruby/LAVIS/lavis/output/BLIP2/dd-vqa/20240430112/sbi.json",
-        "/storage1/ruby/LAVIS/lavis/output/BLIP2/dd-vqa/20240430112/real.json"
+        "/storage1/ruby/LAVIS/lavis/output/BLIP2/dd-vqa/20240501150/sladd.json",
+        "/storage1/ruby/LAVIS/lavis/output/BLIP2/dd-vqa/20240501150/real.json"
     ]
 
     gts, res = {}, {}
