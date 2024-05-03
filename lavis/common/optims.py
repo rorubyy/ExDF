@@ -53,6 +53,39 @@ class LinearWarmupStepLRScheduler:
             )
 
 
+@registry.register_lr_scheduler("linear_decay_lr")
+class LinearDecayLRScheduler:
+    def __init__(
+        self,
+        optimizer,
+        max_epoch,
+        min_lr,
+        init_lr,
+        **kwargs
+    ):
+        self.optimizer = optimizer
+
+        self.max_epoch = max_epoch
+        self.min_lr = min_lr
+
+        self.init_lr = init_lr
+        
+
+    def step(self, cur_epoch, cur_step):
+        linear_decay_lr_schedule(
+            epoch=cur_epoch,
+            optimizer=self.optimizer,
+            max_epoch=self.max_epoch,
+            init_lr=self.init_lr,
+            min_lr=self.min_lr,
+        )
+
+def linear_decay_lr_schedule(optimizer, epoch, max_epoch, init_lr, min_lr):
+    """Decay the learning rate"""
+    lr = init_lr - (init_lr - min_lr) * (epoch/max_epoch)
+    for param_group in optimizer.param_groups:
+        param_group["lr"] = lr
+
 @registry.register_lr_scheduler("linear_warmup_cosine_lr")
 class LinearWarmupCosineLRScheduler:
     def __init__(

@@ -80,6 +80,9 @@ class Blip2VicunaInstructLoRA(Blip2Base):
         self.Qformer, self.query_tokens = self.init_Qformer(
             num_query_token, self.visual_encoder.num_features
         )
+        # self.query_tokens.requires_grad = False
+        # for name, param in self.ln_vision.named_parameters():
+        #     param.requires_grad = False
 
         if not qformer_text_input:
             self.Qformer.bert.embeddings.word_embeddings = None
@@ -110,6 +113,8 @@ class Blip2VicunaInstructLoRA(Blip2Base):
         # self.eos_token_id = self.llm_tokenizer(
         #     self.llm_tokenizer.eos_token, add_special_tokens=False
         # ).input_ids[0]
+        # for name, param in self.Qformer.named_parameters():
+        #     param.requires_grad = False
 
         for name, param in self.llm_model.named_parameters():
             param.requires_grad = False
@@ -149,6 +154,10 @@ class Blip2VicunaInstructLoRA(Blip2Base):
         self.llm_proj = nn.Linear(
             self.Qformer.config.hidden_size, self.llm_model.config.hidden_size
         )
+        for name, param in self.llm_model.named_parameters():
+            if 'lora' in name:
+                param.data = param.data.float()  
+                print(f"Converted {name} to float32")
 
         self.max_txt_len = max_txt_len
         self.max_output_txt_len = max_output_txt_len
@@ -428,7 +437,7 @@ class Blip2VicunaInstructLoRA(Blip2Base):
         samples,
         num_beams=5,
         inference_method="generate",
-        max_len=10,
+        max_len=256,
         min_len=1,
         num_ans_candidates=128,
         answer_list=None,
@@ -461,7 +470,7 @@ class Blip2VicunaInstructLoRA(Blip2Base):
         output_text = self.generate(
             samples,
             num_beams=num_beams,
-            max_length=max_len,
+            max_length=50,
             min_length=min_len,
             length_penalty=length_penalty
         )

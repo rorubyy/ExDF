@@ -62,6 +62,7 @@ class BaseTask:
 
     def train_step(self, model, samples):
         output = model(samples)
+
         loss_dict = {}
         for k,v in output.items():
             if "loss" in k:
@@ -227,6 +228,9 @@ class BaseTask:
                 scaler.scale(loss).backward()
             else:
                 loss.backward() 
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+
+
 
             # update gradients every accum_grad_iters iterations
             if (i + 1) % accum_grad_iters == 0:

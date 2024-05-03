@@ -11,7 +11,6 @@ from torch.cuda.amp import autocast as autocast
 import torch.nn as nn
 
 import transformers
-from peft import LoraConfig, get_peft_model
 
 from lavis.common.registry import registry
 from lavis.models.blip2_models.blip2 import Blip2Base, disabled_train
@@ -21,8 +20,8 @@ from lavis.common.dist_utils import download_cached_file
 from lavis.models.blip2_models.Qformer_lora import lora, custom_lora, mark_only_lora_as_trainable, check_lora_application
 
 
-@registry.register_model("blip2_vicuna_instruct_qformer_llm_lora")
-class Blip2VicunaInstructQformerLLMLoRA(Blip2Base):
+@registry.register_model("blip2_vicuna_instruct_qformer_lora")
+class Blip2VicunaInstructQformerLoRA(Blip2Base):
     """
     BLIP2 Vicuna model.
     Supported model types:
@@ -53,8 +52,6 @@ class Blip2VicunaInstructQformerLLMLoRA(Blip2Base):
         max_output_txt_len=256,
         apply_lemmatizer=False,
         qformer_text_input=True,
-        llm_lora_r=8,
-        llm_lora_apply="attn",
     ):
         super().__init__()
         transformers_version = version.parse(transformers.__version__)
@@ -115,38 +112,6 @@ class Blip2VicunaInstructQformerLLMLoRA(Blip2Base):
         for name, param in self.llm_model.named_parameters():
             param.requires_grad = False
             
-        def _find_all_linear_names(model):
-            cls = torch.nn.Linear
-            lora_module_names = set()
-            for name, module in model.named_modules():
-                if isinstance(module, cls):
-                    names = name.split('.')
-                    lora_module_names.add(names[0] if len(names) == 1 else names[-1])
-
-            # if 'lm_head' in lora_module_names: # needed for 16-bit
-            #     lora_module_names.remove('lm_head')
-            return list(lora_module_names)
-        target_modules = []
-        if llm_lora_apply == "attn":
-            target_modules = ['q_proj','v_proj'] 
-        elif llm_lora_apply == "ffn":
-            target_modules = ['gate_proj', "up_proj", "down_proj"]
-        elif llm_lora_apply == "all":
-            target_modules = ['q_proj','v_proj', 'gate_proj', "up_proj", "down_proj"] 
-        else: 
-            print("Wrong llm_lora_apply value in yaml!!")
-        print(f"applying llm lora on {llm_lora_apply}")
-        lora_config = LoraConfig(
-            r=llm_lora_r,
-            lora_alpha=8,
-            target_modules=target_modules,
-            # lora_dropout=training_args.lora_dropout,
-            # bias=training_args.lora_bias,
-            task_type="CAUSAL_LM",
-        )
-        self.llm_model = get_peft_model(self.llm_model, lora_config)
-        self.llm_model.print_trainable_parameters()
-
         self.llm_proj = nn.Linear(
             self.Qformer.config.hidden_size, self.llm_model.config.hidden_size
         )
@@ -757,9 +722,7 @@ class Blip2VicunaInstructQformerLLMLoRA(Blip2Base):
 
         qformer_text_input = cfg.get("qformer_text_input", True)
         
-        llm_lora_r = cfg.get("llm_lora_r", 8)
-        llm_lora_apply = cfg.get("llm_lora_apply", "attn") 
-        
+        ## If lora, with lora
         r = cfg.get("lora_r", 8)
         alpha = cfg.get("lora_alpha", 16)
         dropout = cfg.get("lora_dropout", 0.05)
@@ -789,8 +752,6 @@ class Blip2VicunaInstructQformerLLMLoRA(Blip2Base):
                 max_output_txt_len=max_output_txt_len,
                 apply_lemmatizer=apply_lemmatizer,
                 qformer_text_input=qformer_text_input,
-                llm_lora_r=llm_lora_r,
-                llm_lora_apply=llm_lora_apply
             )
 
         # if qformer_text_input:
