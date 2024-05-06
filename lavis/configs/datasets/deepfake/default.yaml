@@ -5,10 +5,10 @@ datasets:
       annotations:
         train:
           url: https://raw.githubusercontent.com/rorubyy/jsonfile/main/train.json
-          storage: /storage1/ruby/thesis_dataset/ann/train/classification/fixed_text_input/ip2p-train.json
+          storage: /storage1/ruby/thesis_dataset/ann/train/generation/fixed_text_input/ip2p-train.json
         val:
           url: https://raw.githubusercontent.com/rorubyy/jsonfile/main/val.json
-          storage: /storage1/ruby/thesis_dataset/ann/test/classification/fixed_text_input/ip2p-test.json     
+          storage: /storage1/ruby/thesis_dataset/ann/test/generation/fixed_text_input/ip2p-test.json     
         test:
           url: 
               - https://raw.githubusercontent.com/rorubyy/jsonfile/main/test.json
@@ -17,7 +17,7 @@ datasets:
               # - https://raw.githubusercontent.com/rorubyy/jsonfile/main/test.json
 
           storage: 
-              - /storage1/ruby/thesis_dataset/ann/test/classification/fixed_text_input/ip2p-test.json        
+              - /storage1/ruby/thesis_dataset/ann/test/generation/fixed_text_input/ip2p-test.json        
               # - /storage1/ruby/LAVIS/deepfake/ann/test/classification/ip2p-test-stage1.json        
               # - /storage1/ruby/LAVIS/deepfake/ann/test/classification/mfg-test-stage1.json        
               # - /storage1/ruby/LAVIS/deepfake/ann/test/classification/hive-test-stage1.json        

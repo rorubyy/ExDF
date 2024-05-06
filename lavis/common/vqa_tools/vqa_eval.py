@@ -400,16 +400,14 @@ class Cunstom_VQAEval(VQAEval):
         print("computing ACC")
         correct_count = 0
         total_count = len(quesIds)
-        candidate_answers = []
-        reference_answers = []
         for quesId in quesIds:
             resAns = res[quesId]["answer"].lower()
             gtAns = gts[quesId]["answers"][0]["answer"].lower()
-
-            candidate_answers.append(resAns)
-            reference_answers.append(gtAns)
-
-            if resAns == gtAns:
+            
+            res = 0 if 'real' in resAns else 1
+            gt = 0 if 'real' in gtAns else 1
+            
+            if res == gt:
                 correct_count += 1
 
         if total_count > 0:

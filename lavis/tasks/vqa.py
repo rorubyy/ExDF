@@ -166,9 +166,9 @@ class VQATask(BaseTask):
         # TODO change to deepfake explination
         else:
             if mode == "val":
-                ques_file = "/storage1/ruby/LAVIS/deepfake/ann/test/classification/ip2p-test-stage1.json"
+                ques_file = "/storage1/ruby/thesis_dataset/ann/test/generation/fixed_text_input/ip2p-test.json"
             else:
-                ques_file = "/storage1/ruby/LAVIS/deepfake/ann/test/classification/ip2p-test-stage1.json"
+                ques_file = "/storage1/ruby/thesis_dataset/ann/test/generation/fixed_text_input/ip2p-test.json"
 
             vqa = CustomVQA(annotation_file=ques_file)
             vqa_result = vqa.loadRes_custom(resFile=result_file, quesFile=ques_file)
