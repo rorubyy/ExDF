@@ -178,11 +178,11 @@ class VQATask(BaseTask):
         else:
             if mode == "val":
                 ques_file = (
-                    "/storage1/ruby/LAVIS/deepfake/ann/ip2p-test.json"
+                    "/storage1/ruby/LAVIS/deepfake/ann/test/ip2p-test-stage1.json"
                 )
             else:
                 ques_file = (
-                    "/storage1/ruby/LAVIS/deepfake/ann/ip2p-test.json"
+                    "/storage1/ruby/LAVIS/deepfake/ann/test/ip2p-test-stage1.json"
                 )
 
             vqa = CustomVQA(annotation_file=ques_file)
