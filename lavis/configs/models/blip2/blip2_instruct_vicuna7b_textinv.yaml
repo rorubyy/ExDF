@@ -6,11 +6,9 @@
 model:
   arch: blip2_vicuna_instruct_textinv
   load_finetuned: True
-  load_pretrained: True
+  load_pretrained: False
 
   pretrained: "https://storage.googleapis.com/sfr-vision-language-research/LAVIS/models/InstructBLIP/instruct_blip_vicuna7b_trimmed.pth"
-  # finetuned: "/storage1/ruby/AntifakePrompt/lavis/output/BLIP2/Textual_inv/20240208210/checkpoint_best.pth"
-  finetuned: "/storage1/ruby/LAVIS/lavis/output/BLIP2/dd-vqa/20240424174/checkpoint_best.pth"
 
   # vit encoder
   image_size: 224
@@ -26,10 +24,7 @@ model:
   llm_model: "/storage1/ruby/AntifakePrompt/lavis/llm/vicuna-7b/snapshots/9d8eea215e00b388a22e8f050768ea8911d41f1d"
 
   # generation configs
-  # prompt: "Is this photo real [*]?"
-  prompt: "Is this photo real? If not, why? [*]"
-  # prompt: "[*] Is this photo real?"
-  # prompt: "Is this photo [*]?"
+  prompt: "Is this photo real [*]?"
   pseudo_word: "[*]"
   # init_word: "real"
 
@@ -57,17 +52,9 @@ preprocess:
     text_processor:
         train:
           name: "blip_question_textinv"
-          # prompt: "Is this photo real [*]?"
-          prompt: "Is this image real? If not, why? [*]"
-
-          # prompt: "[*] Is this photo real?"
-          # prompt: "Is this photo [*]?"
+          prompt: "Is this image real? [*]"
           pseudo_word: "[*]"
         eval:
           name: "blip_question_textinv"
-          # prompt: "Is this photo real [*]?"
-          prompt: "Is this image real? If not, why? [*]"
-
-          # prompt: "[*] Is this photo real?"
-          # prompt: "Is this photo [*]?"
+          prompt: "Is this photo real [*]?"
           pseudo_word: "[*]"

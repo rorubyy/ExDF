@@ -361,6 +361,33 @@ class Cunstom_VQAEval(VQAEval):
     #     self.setAccuracy(accQA)
     #     print("Done computing accuracy")
 
+    # def evaluate(self, quesIds=None):
+    #     if quesIds == None:
+    #         quesIds = [quesId for quesId in self.params["question_id"]]
+    #     gts = {}
+        # res = {}
+        # for quesId in quesIds:
+        #     gts[quesId] = self.vqa.qa[quesId]
+        #     res[quesId] = self.vqaRes.qa[quesId]
+
+        # print("computing BERTScore")
+        # candidate_answers = []
+        # reference_answers = []
+        # for quesId in quesIds:
+        #     resAns = res[quesId]["answer"].lower()
+        #     gtAns = gts[quesId]["answers"][0]["answer"].lower()
+
+        #     candidate_answers.append(resAns)
+        #     reference_answers.append(gtAns)
+
+        # P, R, F1 = score(candidate_answers, reference_answers, lang="en", verbose=True)
+
+        # print(f"BERTScore Precision: {P.mean()}")
+        # print(f"BERTScore Recall: {R.mean()}")
+        # print(f"BERTScore F1 Score: {F1.mean()}")
+        # self.setAccuracy(F1)
+        # print("Done computing accuracy")
+        
     def evaluate(self, quesIds=None):
         if quesIds == None:
             quesIds = [quesId for quesId in self.params["question_id"]]
@@ -370,7 +397,9 @@ class Cunstom_VQAEval(VQAEval):
             gts[quesId] = self.vqa.qa[quesId]
             res[quesId] = self.vqaRes.qa[quesId]
 
-        print("computing BERTScore")
+        print("computing ACC")
+        correct_count = 0
+        total_count = len(quesIds)
         candidate_answers = []
         reference_answers = []
         for quesId in quesIds:
@@ -380,13 +409,17 @@ class Cunstom_VQAEval(VQAEval):
             candidate_answers.append(resAns)
             reference_answers.append(gtAns)
 
-        P, R, F1 = score(candidate_answers, reference_answers, lang="en", verbose=True)
+            if resAns == gtAns:
+                correct_count += 1
 
-        print(f"BERTScore Precision: {P.mean()}")
-        print(f"BERTScore Recall: {R.mean()}")
-        print(f"BERTScore F1 Score: {F1.mean()}")
-        self.setAccuracy(F1)
+        if total_count > 0:
+            accuracy = correct_count / total_count
+        else:
+            accuracy = 0
+
+        print(f"Accuracy: {accuracy:.2f}")
         print("Done computing accuracy")
+        self.accuracy["overall"] = accuracy
 
     def setAccuracy(self, F1):
         self.accuracy["overall"] = F1.mean().item()

@@ -5,7 +5,7 @@
 
 model:
   # arch: blip2_vicuna_instruct_textinv
-  arch: blip2_vicuna_instruct
+  arch: blip2_vicuna_instruct_textinv
   model_type: vicuna7b
   load_pretrained: True
   load_finetuned: False 
@@ -30,7 +30,7 @@ datasets:
             name: "blip_caption"
       build_info:
           images:
-              storage: '/storage1/ruby/instruct-pix2pix/ffhq_256_instructP2P'
+              storage: '/storage1/ruby/thesis_dataset'
 
 run:
   task: vqa

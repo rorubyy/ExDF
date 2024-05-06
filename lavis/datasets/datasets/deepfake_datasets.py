@@ -48,7 +48,12 @@ class DeepfakeDataset(BaseDataset):
 class DeepfakeEvalDataset(BaseDataset, __DisplMixin):
     def __init__(self, vis_processor, text_processor, vis_root, ann_paths):
         self.vis_root = vis_root
-        self.annotation = json.load(open(ann_paths[0]))
+        annotations = []
+        for path in ann_paths:
+            with open(path, 'r') as file:
+                annotations.extend(json.load(file))
+        self.annotation =  annotations
+        # self.annotation = json.load(open(ann_paths[0]))
 
         self.vis_processor = vis_processor
         self.text_processor = text_processor
