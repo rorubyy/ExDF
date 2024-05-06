@@ -14,6 +14,8 @@ __author__ = "aagrawal"
 import sys
 import re
 from bert_score import score
+from pycocoevalcap.spice.spice import Spice
+
 
 
 class VQAEval:
@@ -336,68 +338,29 @@ class Cunstom_VQAEval(VQAEval):
         self.vqaRes = vqaRes
         if vqa is not None:
             self.params = {"question_id": vqa.getQuesIds()}
+        self.spice_scorer = Spice()
 
-    # def evaluate(self, quesIds=None):
-    #     if quesIds == None:
-    #         quesIds = [quesId for quesId in self.params["question_id"]]
-    #     gts = {}
-    #     res = {}
-    #     for quesId in quesIds:
-    #         gts[quesId] = self.vqa.qa[quesId]
-    #         res[quesId] = self.vqaRes.qa[quesId]
 
-    #     # =================================================
-    #     # Compute accuracy
-    #     # =================================================
-    #     accQA = []
-    #     print("computing accuracy")
+    def generation_score(self, res, gts, quesIds):
+        print("Computing SPICE")
+        candidate_captions = {}
+        reference_captions = {}
 
-    #     for quesId in quesIds:
-    #         resAns = res[quesId]["answer"].lower()
-    #         gtAns = gts[quesId]["answers"][0]["answer"].lower()
-    #         acc = 1 if (resAns.startswith('yes') and gtAns.startswith('yes')) or (resAns.startswith('no') and gtAns.startswith('no')) else 0
-    #         accQA.append(acc)
-
-    #     self.setAccuracy(accQA)
-    #     print("Done computing accuracy")
-
-    # def evaluate(self, quesIds=None):
-    #     if quesIds == None:
-    #         quesIds = [quesId for quesId in self.params["question_id"]]
-    #     gts = {}
-        # res = {}
-        # for quesId in quesIds:
-        #     gts[quesId] = self.vqa.qa[quesId]
-        #     res[quesId] = self.vqaRes.qa[quesId]
-
-        # print("computing BERTScore")
-        # candidate_answers = []
-        # reference_answers = []
-        # for quesId in quesIds:
-        #     resAns = res[quesId]["answer"].lower()
-        #     gtAns = gts[quesId]["answers"][0]["answer"].lower()
-
-        #     candidate_answers.append(resAns)
-        #     reference_answers.append(gtAns)
-
-        # P, R, F1 = score(candidate_answers, reference_answers, lang="en", verbose=True)
-
-        # print(f"BERTScore Precision: {P.mean()}")
-        # print(f"BERTScore Recall: {R.mean()}")
-        # print(f"BERTScore F1 Score: {F1.mean()}")
-        # self.setAccuracy(F1)
-        # print("Done computing accuracy")
-        
-    def evaluate(self, quesIds=None):
-        if quesIds == None:
-            quesIds = [quesId for quesId in self.params["question_id"]]
-        gts = {}
-        res = {}
         for quesId in quesIds:
-            gts[quesId] = self.vqa.qa[quesId]
-            res[quesId] = self.vqaRes.qa[quesId]
+            resAns = res[quesId]["answer"].lower()
+            gtAns = gts[quesId]["answers"][0]["answer"].lower()
 
-        print("computing ACC")
+            candidate_captions[quesId] = [resAns]
+            reference_captions[quesId] = [gtAns]
+            
+
+        spice_result = self.spice_scorer.compute_score(reference_captions, candidate_captions)
+        spice_score, _ = spice_result
+
+        self.accuracy["generation"] = spice_score
+
+
+    def classification_score(self, res, gts, quesIds):
         correct_count = 0
         total_count = len(quesIds)
         candidate_answers = []
@@ -405,6 +368,10 @@ class Cunstom_VQAEval(VQAEval):
         for quesId in quesIds:
             resAns = res[quesId]["answer"].lower()
             gtAns = gts[quesId]["answers"][0]["answer"].lower()
+            fake_1="fake"
+            fake_2="no"
+            resAns = 1 if fake_1 in resAns or fake_2 in resAns else 0
+            gtAns = 1 if fake_1 in gtAns or fake_2 in gtAns else 0
 
             candidate_answers.append(resAns)
             reference_answers.append(gtAns)
@@ -416,11 +383,19 @@ class Cunstom_VQAEval(VQAEval):
             accuracy = correct_count / total_count
         else:
             accuracy = 0
+        self.accuracy["classification"] = accuracy
 
-        print(f"Accuracy: {accuracy:.2f}")
-        print("Done computing accuracy")
-        self.accuracy["overall"] = accuracy
+    def evaluate(self, quesIds=None):
+        if quesIds == None:
+            quesIds = [quesId for quesId in self.params["question_id"]]
+        gts = {}
+        res = {}
+        for quesId in quesIds:
+            gts[quesId] = self.vqa.qa[quesId]
+            res[quesId] = self.vqaRes.qa[quesId]
+        self.generation_score(res, gts, quesIds)
+        self.classification_score(res, gts, quesIds)
+        self.setAccuracy(self.accuracy["generation"], self.accuracy["classification"])
 
-    def setAccuracy(self, F1):
-        self.accuracy["overall"] = F1.mean().item()
-        # self.accuracy["overall"] = round(100 * float(sum(accQA)) / len(accQA), self.n)
+    def setAccuracy(self, gen, cla):
+        self.accuracy["overall"] = cla * 0.7 + gen * 0.3

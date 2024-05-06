@@ -159,11 +159,11 @@ class Blip2VicunaInstruct(Blip2Base):
         llm_tokens['attention_mask'] = torch.stack(llm_tokens['attention_mask'])
         return llm_tokens, input_part_targets_len
     
-    def modify_text_input_with_classification(self, samples, classification_results):
+    def modify_text_input_with_classification(self, prompt, classification_results):
         # This function assumes that `samples['text_input']` is a list of text inputs
         # and `classification_results` is a list of classification results ('real' or 'fake')
         modified_texts = []
-        for text, classification in zip(samples['text_input'], classification_results):
+        for text, classification in zip(prompt, classification_results):
             # Add a hint based on the classification
             hint = "Note: The image is considered " + classification + "."
             modified_text = text + " " + hint
@@ -225,10 +225,10 @@ class Blip2VicunaInstruct(Blip2Base):
         # ----------
         
         # ----- new ----- get classification result
-        _, predicted_indices = torch.max(classification_prediction, dim=1)
-        classification_results = ['real' if idx == 0 else 'fake' for idx in predicted_indices]
-        modified_text_input = self.modify_text_input_with_classification(samples, classification_results)
-        samples['text_input'] = modified_text_input
+        # _, predicted_indices = torch.max(classification_prediction, dim=1)
+        # classification_results = ['real' if idx == 0 else 'fake' for idx in predicted_indices]
+        # modified_text_input = self.modify_text_input_with_classification(samples["text_input"], classification_results)
+        # samples['text_input'] = modified_text_input
 
         # ----------
 
@@ -420,6 +420,14 @@ class Blip2VicunaInstruct(Blip2Base):
                     encoder_attention_mask=image_atts,
                     return_dict=True,
                 )
+            # ----- new ----- add classification result to llm input prmopt
+            # classification_prediction = self.cls_head(query_output.last_hidden_state[:, 0, :])
+            # _, predicted_indices = torch.max(classification_prediction, dim=1)
+            # classification_results = ['real' if idx == 0 else 'fake' for idx in predicted_indices]
+            # modified_text_input = self.modify_text_input_with_classification(prompt, classification_results)
+            # prompt = modified_text_input
+            # ----------
+
 
             inputs_llm = self.llm_proj(query_output.last_hidden_state[:,:query_tokens.size(1),:])
             atts_llm = torch.ones(inputs_llm.size()[:-1], dtype=torch.long).to(image.device)

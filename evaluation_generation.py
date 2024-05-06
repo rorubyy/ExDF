@@ -29,8 +29,8 @@ def spice(gts, res):
 
 
 def main():
-    gt_files = "/storage1/ruby/thesis_dataset/ann/multiple-task/ip2p-test.json"
-    ans_files = "/storage1/ruby/LAVIS/lavis/output/result/classification/instructBLIP_random_text.json"
+    gt_files = "/storage1/ruby/thesis_dataset/ann/test/generation/random_text_input/iDiff-test.json"
+    ans_files = "/storage1/ruby/LAVIS/lavis/output/result/generation/stage2_instructBLIP_random_text.json"
 
     gts, res = {}, {}
 
@@ -40,8 +40,8 @@ def main():
     question_ids2 = {item["question_id"] for item in data2}
     common_ids = question_ids1 & question_ids2
 
-    gts = {item["question_id"]: item["text_output"] for item in data1 if item["question_id"] in common_ids}
-    res = {item["question_id"]: item["answer"] for item in data2 if item["question_id"] in common_ids}
+    gts = {item["question_id"]: [item["text_output"]] for item in data1 if item["question_id"] in common_ids}
+    res = {item["question_id"]: [item["answer"]] for item in data2 if item["question_id"] in common_ids}
     
     spice(gts, res)
     meteor(gts, res)
