@@ -74,23 +74,29 @@ class VQATask(BaseTask):
         # get question file, annotation file and anwser list in COCO format
         for dataset in datasets.values():
             for split in dataset:
-                if (
-                    hasattr(dataset[split], "coco_fmt_qust_file")
-                    and dataset[split].coco_fmt_qust_file is not None
-                ):
-                    self.ques_files[split] = dataset[split].coco_fmt_qust_file
-                    self.anno_files[split] = dataset[split].coco_fmt_anno_file
+                annotation_paths = cfg.datasets_cfg.deepfake.build_info.annotations[
+                    split
+                ]["storage"]
+                self.anno_files[split] = annotation_paths
+                self.ques_files[split] = annotation_paths
 
-                try:
-                    self.answer_list = dataset[split].answer_list
-                except AttributeError:
-                    # if answer_list is not provided, then set it to None
-                    pass
+                # if (
+                #     hasattr(dataset[split], "coco_fmt_qust_file")
+                #     and dataset[split].coco_fmt_qust_file is not None
+                # ):
+                #     self.ques_files[split] = dataset[split].coco_fmt_qust_file
+                #     self.anno_files[split] = dataset[split].coco_fmt_anno_file
 
-        if len(self.ques_files) > 0:
-            assert len(self.ques_files) == len(
-                self.anno_files
-            ), "Only support one split for evaluation."
+                # try:
+                #     self.answer_list = dataset[split].answer_list
+                # except AttributeError:
+                #     # if answer_list is not provided, then set it to None
+                #     pass
+
+        # if len(self.ques_files) > 0:
+        #     assert len(self.ques_files) == len(
+        #         self.anno_files
+        #     ), "Only support one split for evaluation."
 
         return datasets
 
@@ -135,34 +141,64 @@ class VQATask(BaseTask):
         metrics = {}
 
         if split in self.ques_files and split in self.anno_files:
-            vqa = VQA(self.anno_files[split], self.ques_files[split])
-            vqa_result = vqa.loadRes(
-                resFile=result_file, quesFile=self.ques_files[split]
-            )
-            # create vqaEval object by taking vqa and vqaRes
-            # n is precision of accuracy (number of places after decimal), default is 2
-            vqa_scorer = VQAEval(vqa, vqa_result, n=2)
-            logging.info("Start VQA evaluation.")
-            vqa_scorer.evaluate()
-
-            # print accuracies
-            overall_acc = vqa_scorer.accuracy["overall"]
-            metrics["agg_metrics"] = overall_acc
-
-            logging.info("Overall Accuracy is: %.02f\n" % overall_acc)
-            logging.info("Per Answer Type Accuracy is the following:")
-
-            for ans_type in vqa_scorer.accuracy["perAnswerType"]:
-                logging.info(
-                    "%s : %.02f"
-                    % (ans_type, vqa_scorer.accuracy["perAnswerType"][ans_type])
+            if mode == "val":
+                vqa = CustomVQA(annotation_file=self.ques_files[mode])
+                vqa_result = vqa.loadRes_custom(
+                    resFile=result_file, quesFile=self.ques_files[mode]
                 )
-                metrics[ans_type] = vqa_scorer.accuracy["perAnswerType"][ans_type]
+                vqa_scorer = Cunstom_VQAEval(vqa, vqa_result, n=2)
+                logging.info("Start VQA evaluation.")
+                vqa_scorer.evaluate()
+                overall_acc = vqa_scorer.accuracy["overall"]
+                metrics["agg_metrics"] = overall_acc
+                logging.info("Overall Accuracy is: %.02f\n" % overall_acc)
+            else:
+                for index, ques_file in enumerate(self.ques_files[mode]):
+                    vqa = CustomVQA(annotation_file=ques_file)
+                    vqa_result = vqa.loadRes_custom(
+                        resFile=result_file, quesFile=ques_file
+                    )
+                    vqa_scorer = Cunstom_VQAEval(vqa, vqa_result, n=2)
+                    logging.info(
+                        "Start Testing VQA evaluation for file: %s" % ques_file
+                    )
+                    vqa_scorer.evaluate()
+                    logging.info(
+                        "Overall Accuracy for %s is: %.02f\n"
+                        % (ques_file, vqa_scorer.accuracy["overall"])
+                    )
 
-            with open(
-                os.path.join(registry.get_path("output_dir"), "evaluate.txt"), "a"
-            ) as f:
-                f.write(json.dumps(metrics) + "\n")
+                    if index == 0:
+                        overall_acc = vqa_scorer.accuracy["overall"]
+                        metrics["agg_metrics"] = overall_acc
+            # vqa = VQA(self.anno_files[split], self.ques_files[split])
+            # vqa_result = vqa.loadRes(
+            #     resFile=result_file, quesFile=self.ques_files[split]
+            # )
+            # # create vqaEval object by taking vqa and vqaRes
+            # # n is precision of accuracy (number of places after decimal), default is 2
+            # vqa_scorer = VQAEval(vqa, vqa_result, n=2)
+            # logging.info("Start VQA evaluation.")
+            # vqa_scorer.evaluate()
+
+            # # print accuracies
+            # overall_acc = vqa_scorer.accuracy["overall"]
+            # metrics["agg_metrics"] = overall_acc
+
+            # logging.info("Overall Accuracy is: %.02f\n" % overall_acc)
+            # logging.info("Per Answer Type Accuracy is the following:")
+
+            # for ans_type in vqa_scorer.accuracy["perAnswerType"]:
+            #     logging.info(
+            #         "%s : %.02f"
+            #         % (ans_type, vqa_scorer.accuracy["perAnswerType"][ans_type])
+            #     )
+            #     metrics[ans_type] = vqa_scorer.accuracy["perAnswerType"][ans_type]
+
+            # with open(
+            #     os.path.join(registry.get_path("output_dir"), "evaluate.txt"), "a"
+            # ) as f:
+            #     f.write(json.dumps(metrics) + "\n")
         # TODO change to deepfake explination
         else:
             if mode == "val":
