@@ -30,11 +30,11 @@ def calculate_ap(gts, res):
 
 def main():
     gt_files = [
-        "/storage1/ruby/LAVIS/deepfake/ann/sladd-test.json",
+        "/storage1/ruby/thesis_dataset/ann/test/classification/fixed_text_input/ip2p-test.json",
         "/storage1/ruby/LAVIS/deepfake/ann/real-test.json"
     ]
     ans_files = [
-        "/storage1/ruby/LAVIS/lavis/output/BLIP2/dd-vqa/20240501150/sladd.json",
+        "/storage1/ruby/LAVIS/result/classification/instructBLIP.json",
         "/storage1/ruby/LAVIS/lavis/output/BLIP2/dd-vqa/20240501150/real.json"
     ]
 
@@ -46,30 +46,13 @@ def main():
         gts[item["question_id"]] = [item["text_output"]]
     for item in data2:
         res[item["question_id"]] = [item["answer"]]
- 
-    data3 = load_data(gt_files[1], increment_id=True)
-    data4 = load_data(ans_files[1], increment_id=True) 
-          
-    max_id_data1 = max(item["question_id"] for item in data1)
-    increment_value = max_id_data1 + 1  
 
-    for item in data3:
-        item["question_id"] += increment_value
-        gts[item["question_id"]] = [item["text_output"]]
-    for item in data4:
-        item["question_id"] += increment_value
-        res[item["question_id"]] = [item["answer"]]
 
-    calculate_bertscore(gts, res)
-
-    # for item in data1:
-    for item in data1+data3:
+    for item in data1:
         gts[item["question_id"]] = simplify_answer(item["text_output"])
-    # for item in data2:
-    for item in data2+data4:
+    for item in data2:
         res[item["question_id"]] = simplify_answer(item["answer"])
     calculate_acc(gts, res)
-    calculate_ap(gts, res)
 
 
 if __name__ == "__main__":
