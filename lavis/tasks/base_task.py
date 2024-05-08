@@ -101,6 +101,25 @@ class BaseTask:
             dist.barrier()
 
         return results
+    
+    def test(self, model, data_loader, cuda_enabled=True):
+        metric_logger = MetricLogger(delimiter="  ")
+        header = "Evaluation"
+        # TODO make it configurable
+        print_freq = 10
+
+        results = []
+
+        for samples in metric_logger.log_every(data_loader, print_freq, header):
+            samples = prepare_sample(samples, cuda_enabled=cuda_enabled)
+
+            eval_output = self.test_step(model=model, samples=samples)
+            results.extend(eval_output)
+
+        if is_dist_avail_and_initialized():
+            dist.barrier()
+
+        return results
 
     def train_epoch(
         self,

@@ -416,7 +416,7 @@ class RunnerBase:
 
         if len(self.test_splits) > 0:
             for split_name in self.test_splits:
-                test_logs[split_name] = self.eval_epoch(
+                test_logs[split_name] = self.test_epoch(
                     split_name=split_name, cur_epoch=cur_epoch, skip_reload=skip_reload, mode="test"
                 )
 
@@ -469,6 +469,43 @@ class RunnerBase:
 
         if results is not None:
             return self.task.after_evaluation(
+                val_result=results,
+                split_name=split_name,
+                epoch=cur_epoch,
+                mode=self.mode
+            )
+            
+    @torch.no_grad()
+    def test_epoch(self, split_name, cur_epoch, skip_reload=False, mode=None):
+        """
+        Evaluate the model on a given split.
+
+        Args:
+            split_name (str): name of the split to evaluate on.
+            cur_epoch (int): current epoch.
+            skip_reload_best (bool): whether to skip reloading the best checkpoint.
+                During training, we will reload the best checkpoint for validation.
+                During testing, we will use provided weights and skip reloading the best checkpoint .
+        """
+        data_loader = self.dataloaders.get(split_name, None)
+        assert data_loader, "data_loader for split {} is None.".format(split_name)
+        self.mode = mode
+        # TODO In validation, you need to compute loss as well as metrics
+        # TODO consider moving to model.before_evaluation()
+        model = self.unwrap_dist_model(self.model)
+        if not skip_reload and cur_epoch == "best":
+            model = self._reload_best_model(model)
+        model.eval()
+
+        self.task.before_evaluation(
+            model=model,
+            dataset=self.datasets[split_name],
+        )
+
+        results = self.task.test(model, data_loader)
+
+        if results is not None:
+            return self.task.after_test(
                 val_result=results,
                 split_name=split_name,
                 epoch=cur_epoch,
