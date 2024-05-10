@@ -225,10 +225,10 @@ class Blip2VicunaInstruct(Blip2Base):
         # ----------
         
         # ----- new ----- get classification result
-        # _, predicted_indices = torch.max(classification_prediction, dim=1)
-        # classification_results = ['real' if idx == 0 else 'fake' for idx in predicted_indices]
-        # modified_text_input = self.modify_text_input_with_classification(samples, classification_results)
-        # samples['text_input'] = modified_text_input
+        _, predicted_indices = torch.max(classification_prediction, dim=1)
+        classification_results = ['real' if idx == 0 else 'fake' for idx in predicted_indices]
+        modified_text_input = self.modify_text_input_with_classification(samples, classification_results)
+        samples['text_input'] = modified_text_input
 
         # ----------
 
