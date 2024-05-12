@@ -33,7 +33,7 @@ from lavis.tasks import *
 def parse_args():
     parser = argparse.ArgumentParser(description="Training")
 
-    parser.add_argument("--cfg-path", required=True, help="path to configuration file.")
+    parser.add_argument("--cfg-path", help="path to configuration file.", default="/storage1/ruby/LAVIS/lavis/projects/instructblip/finetune/finetune_instructblip.yaml")
     parser.add_argument(
         "--options",
         nargs="+",

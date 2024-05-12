@@ -42,6 +42,8 @@ class RunnerIter(RunnerBase):
         super().__init__(cfg, task, model, datasets, job_id)
 
         self.start_iters = 0
+        self.no_improve_epochs = 0
+        self.max_no_improve_epochs = 3
 
         self.max_iters = int(self.config.run_cfg.get("max_iters", -1))
         assert self.max_iters > 0, "max_iters must be greater than 0."
@@ -115,13 +117,21 @@ class RunnerIter(RunnerBase):
 
                             agg_metrics = val_log["agg_metrics"]
                             if agg_metrics > best_agg_metric and split_name == "val":
+                                self.no_improve_epochs = 0
+
                                 best_iters, best_agg_metric = end_iters, agg_metrics
 
                                 self._save_checkpoint(end_iters, is_best=True)
+                            else:
+                                self.no_improve_epochs += 1
 
                             val_log.update({"best_iters": best_iters})
                             self.log_stats(val_log, split_name)
 
+                            # check for early stopping
+                            if self.no_improve_epochs >= self.max_no_improve_epochs:
+                                logging.info("Early stopping triggered after {} epochs without improvement.".format(self.no_improve_epochs))
+                                return  # Exit the training loop
             else:
                 # if no validation split is provided, we just save the checkpoint at the end of each inner epoch.
                 if not self.evaluate_only:

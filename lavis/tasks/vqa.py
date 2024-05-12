@@ -119,6 +119,17 @@ class VQATask(BaseTask):
             pred_qa_pairs.append({"question_id": ques_id, "answer": answer})
 
         return pred_qa_pairs
+    
+    def valid_class_step(self, model, samples):
+        candidates = ["yes", "no"]
+
+        answers = model.predict_class(
+            samples=samples,
+            candidates = candidates,
+        )
+        return answers
+
+
 
     def after_evaluation(self, val_result, split_name, mode=None, **kwargs):
         result_file = self.save_result(
@@ -171,40 +182,15 @@ class VQATask(BaseTask):
                     if index == 0:
                         overall_acc = vqa_scorer.accuracy["overall"]
                         metrics["agg_metrics"] = overall_acc
-            # vqa = VQA(self.anno_files[split], self.ques_files[split])
-            # vqa_result = vqa.loadRes(
-            #     resFile=result_file, quesFile=self.ques_files[split]
-            # )
-            # # create vqaEval object by taking vqa and vqaRes
-            # # n is precision of accuracy (number of places after decimal), default is 2
-            # vqa_scorer = VQAEval(vqa, vqa_result, n=2)
-            # logging.info("Start VQA evaluation.")
-            # vqa_scorer.evaluate()
-
-            # # print accuracies
-            # overall_acc = vqa_scorer.accuracy["overall"]
-            # metrics["agg_metrics"] = overall_acc
-
-            # logging.info("Overall Accuracy is: %.02f\n" % overall_acc)
-            # logging.info("Per Answer Type Accuracy is the following:")
-
-            # for ans_type in vqa_scorer.accuracy["perAnswerType"]:
-            #     logging.info(
-            #         "%s : %.02f"
-            #         % (ans_type, vqa_scorer.accuracy["perAnswerType"][ans_type])
-            #     )
-            #     metrics[ans_type] = vqa_scorer.accuracy["perAnswerType"][ans_type]
-
-            # with open(
-            #     os.path.join(registry.get_path("output_dir"), "evaluate.txt"), "a"
-            # ) as f:
-            #     f.write(json.dumps(metrics) + "\n")
-        # TODO change to deepfake explination
         else:
             if mode == "val":
-                ques_file = "/storage1/ruby/thesis_dataset/ann/test/generation/fixed_text_input/ip2p-test.json"
+                ques_file = (
+                    "/storage1/ruby/LAVIS/deepfake/ann/test/ip2p-test-stage1.json"
+                )
             else:
-                ques_file = "/storage1/ruby/thesis_dataset/ann/test/generation/fixed_text_input/ip2p-test.json"
+                ques_file = (
+                    "/storage1/ruby/LAVIS/deepfake/ann/test/ip2p-test-stage1.json"
+                )
 
             vqa = CustomVQA(annotation_file=ques_file)
             vqa_result = vqa.loadRes_custom(resFile=result_file, quesFile=ques_file)

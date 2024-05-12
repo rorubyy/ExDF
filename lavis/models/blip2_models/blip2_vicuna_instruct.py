@@ -171,6 +171,21 @@ class Blip2VicunaInstruct(Blip2Base):
         return modified_texts
 
 
+    def compute_contrastive_loss(self, anchor, positive, negative, tau=0.07):
+        def cosine_similarity(x, y):
+            x_norm = x / (torch.norm(x, dim=1, keepdim=True) + 1e-6)
+            y_norm = y / (torch.norm(y, dim=1, keepdim=True) + 1e-6)
+            return torch.sum(x_norm * y_norm, dim=1)
+
+        positive_similarity = cosine_similarity(anchor, positive) / tau
+        negative_similarity = cosine_similarity(anchor, negative) / tau
+
+        logits = torch.cat([positive_similarity.unsqueeze(1), negative_similarity.unsqueeze(1)], dim=1)
+        
+        labels = torch.zeros(logits.size(0), dtype=torch.long).to(anchor.device)
+        loss = F.cross_entropy(logits, labels)
+        return loss
+
     def forward(self, samples):
         image = samples["image"]
         with self.maybe_autocast():
@@ -205,6 +220,42 @@ class Blip2VicunaInstruct(Blip2Base):
                 encoder_attention_mask=image_atts,
                 return_dict=True,
             )
+            if samples["positive_outputs"] and samples["negative_outputs"]:
+                pos_text_Qformer = self.tokenizer(
+                    samples["positive_outputs"],
+                    padding='longest',
+                    truncation=True,
+                    max_length=self.max_txt_len,
+                    return_tensors="pt",
+                ).to(image.device)    
+                pos_Qformer_atts = torch.cat([query_atts, pos_text_Qformer.attention_mask],dim=1)
+            
+                neg_text_Qformer = self.tokenizer(
+                    samples["negative_outputs"],
+                    padding='longest',
+                    truncation=True,
+                    max_length=self.max_txt_len,
+                    return_tensors="pt",
+                ).to(image.device)
+                neg_Qformer_atts = torch.cat([query_atts, neg_text_Qformer.attention_mask],dim=1)
+
+                pos_query_output = self.Qformer.bert(
+                    pos_text_Qformer.input_ids,
+                    attention_mask=pos_Qformer_atts,
+                    query_embeds=query_tokens,
+                    encoder_hidden_states=image_embeds,
+                    encoder_attention_mask=image_atts,
+                    return_dict=True,
+                )
+                
+                neg_query_output = self.Qformer.bert(
+                    neg_text_Qformer.input_ids,
+                    attention_mask=neg_Qformer_atts,
+                    query_embeds=query_tokens,
+                    encoder_hidden_states=image_embeds,
+                    encoder_attention_mask=image_atts,
+                    return_dict=True,
+                )           
         else:
             query_output = self.Qformer.bert(
                 query_embeds=query_tokens,
@@ -213,15 +264,23 @@ class Blip2VicunaInstruct(Blip2Base):
                 return_dict=True,
             )
             
+        # -----new ----- text contrastive learning loss
+        cls_original = query_output.last_hidden_state[:, 0, :]
+        cls_positive = pos_query_output.last_hidden_state[:, 0, :]
+        cls_negative = neg_query_output.last_hidden_state[:, 0, :]
+        contrastive_loss = self.compute_contrastive_loss(cls_original, cls_positive, cls_negative)
+
+        # ---------
+
         # ----- new ----- classification
-        classification_targets = samples["label"]
-        label_to_index = {'real': 0, 'fake': 1}
-        target_indices = [label_to_index[label] for label in classification_targets]
+        # classification_targets = samples["label"]
+        # label_to_index = {'real': 0, 'fake': 1}
+        # target_indices = [label_to_index[label] for label in classification_targets]
 
-        target_tensor = torch.tensor(target_indices).to('cuda:0')
+        # target_tensor = torch.tensor(target_indices).to('cuda:0')
 
-        classification_prediction = self.cls_head(query_output.last_hidden_state[:, 0, :])
-        classification_loss = F.cross_entropy(classification_prediction, target_tensor)
+        # classification_prediction = self.cls_head(query_output.last_hidden_state[:, 0, :])
+        # classification_loss = F.cross_entropy(classification_prediction, target_tensor)
         # ----------
         
         # ----- new ----- get classification result
@@ -309,7 +368,9 @@ class Blip2VicunaInstruct(Blip2Base):
         vlm_loss = outputs.loss
 
         # ----- new ----- classification
-        loss = vlm_loss + classification_loss
+        # loss = vlm_loss + classification_loss
+        # ----- new ----- contrastive loss
+        loss = vlm_loss + contrastive_loss
         return {"loss": loss}
 
     @torch.no_grad()
@@ -429,7 +490,6 @@ class Blip2VicunaInstruct(Blip2Base):
             padding="longest",
             return_tensors="pt"
         ).to(image.device)
-
 
 
         with self.maybe_autocast():
