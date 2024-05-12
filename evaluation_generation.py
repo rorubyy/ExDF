@@ -1,13 +1,6 @@
 import json
-from pycocoevalcap.bleu.bleu import Bleu
-from pycocoevalcap.cider.cider import Cider
 from pycocoevalcap.meteor.meteor import Meteor
-from pycocoevalcap.rouge.rouge import Rouge
 from pycocoevalcap.spice.spice import Spice
-from bert_score import score as bert_score
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-from bert_score import score
 
 
 def load_data(file_path, increment_id=False):
@@ -29,8 +22,8 @@ def spice(gts, res):
 
 
 def main():
-    gt_files = "/storage1/ruby/thesis_dataset/ann/test/generation/random_text_input/ip2p-test.json"
-    ans_files = "/storage1/ruby/LAVIS/lavis/output/result/generation/multitask-random-classification-llminput.json"
+    gt_files = "/storage1/ruby/thesis_dataset/ann/test/generation/fixed_text_input/mfg-test.json"
+    ans_files = "/storage1/ruby/LAVIS/lavis/output/result/classification/test.json"
 
     gts, res = {}, {}
 
