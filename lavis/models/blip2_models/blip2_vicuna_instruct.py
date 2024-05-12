@@ -394,7 +394,6 @@ class Blip2VicunaInstruct(Blip2Base):
         ).to(image.device)
 
 
-
         with self.maybe_autocast():
             
             inputs_embeds = self.llm_model.get_input_embeddings()(llm_tokens.input_ids)

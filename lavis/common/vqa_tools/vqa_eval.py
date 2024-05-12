@@ -337,56 +337,6 @@ class Cunstom_VQAEval(VQAEval):
         if vqa is not None:
             self.params = {"question_id": vqa.getQuesIds()}
 
-    # def evaluate(self, quesIds=None):
-    #     if quesIds == None:
-    #         quesIds = [quesId for quesId in self.params["question_id"]]
-    #     gts = {}
-    #     res = {}
-    #     for quesId in quesIds:
-    #         gts[quesId] = self.vqa.qa[quesId]
-    #         res[quesId] = self.vqaRes.qa[quesId]
-
-    #     # =================================================
-    #     # Compute accuracy
-    #     # =================================================
-    #     accQA = []
-    #     print("computing accuracy")
-
-    #     for quesId in quesIds:
-    #         resAns = res[quesId]["answer"].lower()
-    #         gtAns = gts[quesId]["answers"][0]["answer"].lower()
-    #         acc = 1 if (resAns.startswith('yes') and gtAns.startswith('yes')) or (resAns.startswith('no') and gtAns.startswith('no')) else 0
-    #         accQA.append(acc)
-
-    #     self.setAccuracy(accQA)
-    #     print("Done computing accuracy")
-
-    # def evaluate(self, quesIds=None):
-    #     if quesIds == None:
-    #         quesIds = [quesId for quesId in self.params["question_id"]]
-    #     gts = {}
-        # res = {}
-        # for quesId in quesIds:
-        #     gts[quesId] = self.vqa.qa[quesId]
-        #     res[quesId] = self.vqaRes.qa[quesId]
-
-        # print("computing BERTScore")
-        # candidate_answers = []
-        # reference_answers = []
-        # for quesId in quesIds:
-        #     resAns = res[quesId]["answer"].lower()
-        #     gtAns = gts[quesId]["answers"][0]["answer"].lower()
-
-        #     candidate_answers.append(resAns)
-        #     reference_answers.append(gtAns)
-
-        # P, R, F1 = score(candidate_answers, reference_answers, lang="en", verbose=True)
-
-        # print(f"BERTScore Precision: {P.mean()}")
-        # print(f"BERTScore Recall: {R.mean()}")
-        # print(f"BERTScore F1 Score: {F1.mean()}")
-        # self.setAccuracy(F1)
-        # print("Done computing accuracy")
         
     def evaluate(self, quesIds=None):
         if quesIds == None:
