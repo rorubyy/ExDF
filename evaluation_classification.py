@@ -3,8 +3,7 @@ from sklearn.metrics import precision_recall_curve, auc
 
 
 def simplify_answer(answer):
-    ans = answer.lower()
-    return 1 if "no" in ans or "fake" in ans else 0
+    return 1 if "fake" in answer.lower() else 0
 
 
 def load_data(file_path, increment_id=False):
@@ -22,23 +21,23 @@ def calculate_metrics(gts, res):
     for qid in common_ids:
         if gts[qid] == res[qid]:
             correct_predictions += 1
-            if gts[qid] == 1:
+            if gts[qid] == 1:  
                 true_positives += 1
         else:
             if res[qid] == 1:
                 false_positives += 1
-            if gts[qid] == 1:
+            if gts[qid] == 1:  
                 false_negatives += 1
 
     if true_positives + false_positives > 0:
         precision = true_positives / (true_positives + false_positives)
     else:
-        precision = 1.0
+        precision = 1.0 
 
     if true_positives + false_negatives > 0:
         recall = true_positives / (true_positives + false_negatives)
     else:
-        recall = 1.0
+        recall = 1.0  
 
     if precision + recall > 0:
         f1_score = 2 * (precision * recall) / (precision + recall)
@@ -54,8 +53,8 @@ def calculate_metrics(gts, res):
 
 
 def main():
-    gt_files = "/storage1/ruby/thesis_dataset/ann/test/classification/random_text_input/mfg-test.json"
-    ans_files = "/storage1/ruby/LAVIS/lavis/output/result/multitask-random-classificaiton-llminput.json"
+    gt_files = "/storage1/ruby/thesis_dataset/ann/test/generation/fixed_text_input/mfg-test.json"
+    ans_files = "/storage1/ruby/LAVIS/lavis/output/3/test.json"
 
     gts, res = {}, {}
 

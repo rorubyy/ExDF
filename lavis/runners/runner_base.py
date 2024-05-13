@@ -53,6 +53,9 @@ class RunnerBase:
         self.datasets = datasets
 
         self._model = model
+        
+        self.no_improve_epochs = 0
+        self.max_no_improve_epochs = 3
 
         self._wrapped_model = None
         self._device = None
@@ -392,6 +395,11 @@ class RunnerBase:
 
                             val_log.update({"best_epoch": best_epoch})
                             self.log_stats(val_log, split_name)
+                            
+                            if self.no_improve_epochs >= self.max_no_improve_epochs:
+                                logging.info("Early stopping triggered after {} epochs without improvement.".format(self.no_improve_epochs))
+                                return  # Exit the training loop
+
 
             else:
                 # if no validation split is provided, we just save the checkpoint at the end of each epoch.
@@ -424,6 +432,7 @@ class RunnerBase:
 
     def train_epoch(self, epoch):
         # train
+        self.model.set_current_epoch(epoch)
         self.model.train()
 
         return self.task.train_epoch(

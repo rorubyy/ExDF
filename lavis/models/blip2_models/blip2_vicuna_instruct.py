@@ -16,6 +16,8 @@ from lavis.common.registry import registry
 from lavis.models.blip2_models.blip2 import Blip2Base, disabled_train
 from lavis.models.blip2_models.soft_embedding import SoftEmbedding
 
+import torch.nn.functional as F
+
 
 @registry.register_model("blip2_vicuna_instruct")
 class Blip2VicunaInstruct(Blip2Base):
@@ -116,10 +118,17 @@ class Blip2VicunaInstruct(Blip2Base):
             if "learned_embedding" in name:
                 param.requires_grad = True
 
-        self.llm_proj = nn.Linear(
-            self.Qformer.config.hidden_size, self.llm_model.config.hidden_size
+        # ----- new ----- classification
+        Qformer_hidden_size = self.Qformer.config.hidden_size
+        llm_hidden_size = self.llm_model.config.hidden_size
+        self.llm_proj = nn.Linear(Qformer_hidden_size, llm_hidden_size)
+        num_classes = 2
+        self.cls_head = nn.Sequential(
+            nn.Linear(Qformer_hidden_size, Qformer_hidden_size),
+            nn.ReLU(),
+            nn.Linear(Qformer_hidden_size, num_classes),
         )
-
+        # ----------
         self.max_txt_len = max_txt_len
         self.max_output_txt_len = max_output_txt_len
         self.prompt = prompt
@@ -129,6 +138,9 @@ class Blip2VicunaInstruct(Blip2Base):
         self._lemmatizer = None
 
         self.qformer_text_input = qformer_text_input
+
+    def set_current_epoch(self, epoch):
+        self.current_epoch = epoch
 
     def concat_text_input_output(self, input_ids, input_atts, output_ids, output_atts):
         input_part_targets_len = []
@@ -158,21 +170,61 @@ class Blip2VicunaInstruct(Blip2Base):
         llm_tokens["attention_mask"] = torch.stack(llm_tokens["attention_mask"])
         return llm_tokens, input_part_targets_len
 
-    def forward(self, samples):
-        # RUBY edit for sam
-        # print('-----------------')
-        # print(samples["text_input"])
-        # print(samples["text_output"])
-        # print('-----------------')
+    def modify_text_input_with_classification(self, prompt, classification_results):
+        # This function assumes that `samples['text_input']` is a list of text inputs
+        # and `classification_results` is a list of classification results ('real' or 'fake')
+        modified_texts = []
+        for text, classification in zip(prompt, classification_results):
+            # Add a hint based on the classification
+            hint = "Note: The image is considered " + classification + "."
+            modified_text = text + " " + hint
+            modified_texts.append(modified_text)
+        return modified_texts
 
+    def compute_contrastive_loss(self, anchor, positive, negative, tau=0.07):
+        def cosine_similarity(x, y):
+            x_norm = x / (torch.norm(x, dim=1, keepdim=True) + 1e-6)
+            y_norm = y / (torch.norm(y, dim=1, keepdim=True) + 1e-6)
+            return torch.sum(x_norm * y_norm, dim=1)
+
+        positive_similarity = cosine_similarity(anchor, positive) / tau
+        negative_similarity = cosine_similarity(anchor, negative) / tau
+
+        logits = torch.cat(
+            [positive_similarity.unsqueeze(1), negative_similarity.unsqueeze(1)], dim=1
+        )
+
+        labels = torch.zeros(logits.size(0), dtype=torch.long).to(anchor.device)
+        loss = F.cross_entropy(logits, labels)
+        return loss
+
+    def set_current_epoch(self, epoch):
+        self.current_epoch = epoch
+
+    def forward(self, samples):
         image = samples["image"]
         with self.maybe_autocast():
-            image_encode, intermediate_outputs = self.visual_encoder(image)
-            image_embeds = self.ln_vision(image_encode)
+            final_output, intermediate_outputs = self.visual_encoder(image)
+            image_embeds = self.ln_vision(final_output)
 
         image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(
             image.device
         )
+
+        def weighted_average_features(layers, weights):
+            assert len(layers) == len(
+                weights
+            ), "The number of layers and weights must match"
+            weighted_sum = sum(w * layer for w, layer in zip(weights, layers))
+            return weighted_sum
+
+        front_layers = intermediate_outputs[:3]
+        back_layers = intermediate_outputs[-3:]
+
+        front_weights = [1 / 3] * 3
+        back_weights = [1 / 3] * 3
+        front_features = weighted_average_features(front_layers, front_weights)
+        back_features = weighted_average_features(back_layers, back_weights)
 
         bs = image.size(0)
 
@@ -191,18 +243,10 @@ class Blip2VicunaInstruct(Blip2Base):
             )
             # FIXME TI
             # add soft embedding mask
-            soft_prompt_mask = torch.ones(
-                [
-                    text_Qformer.attention_mask.size(0),
-                    self.Qformer.soft_embedding.n_tokens,
-                ],
-                dtype=torch.long,
-            ).to(image.device)
-            extended_mask = torch.cat(
-                [soft_prompt_mask, text_Qformer.attention_mask], dim=1
-            )
-            Qformer_atts = torch.cat([query_atts, extended_mask], dim=1)
-            # Qformer_atts = torch.cat([query_atts, text_Qformer.attention_mask],dim=1)
+            # soft_prompt_mask = torch.ones([text_Qformer.attention_mask.size(0), self.Qformer.soft_embedding.n_tokens], dtype=torch.long).to(image.device)
+            # extended_mask = torch.cat([soft_prompt_mask, text_Qformer.attention_mask], dim=1)
+            # Qformer_atts = torch.cat([query_atts, extended_mask],dim=1)
+            Qformer_atts = torch.cat([query_atts, text_Qformer.attention_mask], dim=1)
 
             query_output = self.Qformer.bert(
                 text_Qformer.input_ids,
@@ -212,6 +256,51 @@ class Blip2VicunaInstruct(Blip2Base):
                 encoder_attention_mask=image_atts,
                 return_dict=True,
             )
+            class_query_output = self.Qformer.bert(
+                text_Qformer.input_ids,
+                attention_mask=Qformer_atts,
+                query_embeds=query_tokens,
+                encoder_hidden_states=back_features,
+                encoder_attention_mask=image_atts,
+                return_dict=True,
+            )
+            #  ----- new ----- constrative learning loss
+            # if samples["positive_outputs"] and samples["negative_outputs"]:
+            #     pos_text_Qformer = self.tokenizer(
+            #         samples["positive_outputs"],
+            #         padding='longest',
+            #         truncation=True,
+            #         max_length=self.max_txt_len,
+            #         return_tensors="pt",
+            #     ).to(image.device)
+            #     pos_Qformer_atts = torch.cat([query_atts, pos_text_Qformer.attention_mask],dim=1)
+
+            #     neg_text_Qformer = self.tokenizer(
+            #         samples["negative_outputs"],
+            #         padding='longest',
+            #         truncation=True,
+            #         max_length=self.max_txt_len,
+            #         return_tensors="pt",
+            #     ).to(image.device)
+            #     neg_Qformer_atts = torch.cat([query_atts, neg_text_Qformer.attention_mask],dim=1)
+
+            #     pos_query_output = self.Qformer.bert(
+            #         pos_text_Qformer.input_ids,
+            #         attention_mask=pos_Qformer_atts,
+            #         query_embeds=query_tokens,
+            #         encoder_hidden_states=image_embeds,
+            #         encoder_attention_mask=image_atts,
+            #         return_dict=True,
+            #     )
+
+            #     neg_query_output = self.Qformer.bert(
+            #         neg_text_Qformer.input_ids,
+            #         attention_mask=neg_Qformer_atts,
+            #         query_embeds=query_tokens,
+            #         encoder_hidden_states=image_embeds,
+            #         encoder_attention_mask=image_atts,
+            #         return_dict=True,
+            #     )
         else:
             query_output = self.Qformer.bert(
                 query_embeds=query_tokens,
@@ -219,6 +308,34 @@ class Blip2VicunaInstruct(Blip2Base):
                 encoder_attention_mask=image_atts,
                 return_dict=True,
             )
+
+        # -----new ----- text contrastive learning loss
+        # cls_original = query_output.last_hidden_state[:, 0, :]
+        # cls_positive = pos_query_output.last_hidden_state[:, 0, :]
+        # cls_negative = neg_query_output.last_hidden_state[:, 0, :]
+        # contrastive_loss = self.compute_contrastive_loss(cls_original, cls_positive, cls_negative)
+        # ---------
+
+        # ----- new ----- classification
+        classification_targets = samples["label"]
+        label_to_index = {"real": 0, "fake": 1}
+        target_indices = [label_to_index[label] for label in classification_targets]
+
+        target_tensor = torch.tensor(target_indices).to("cuda:0")
+
+        classification_prediction = self.cls_head(
+            class_query_output.last_hidden_state[:, 0, :]
+        )
+        classification_loss = F.cross_entropy(classification_prediction, target_tensor)
+        # ----------
+
+        # ----- new ----- get classification result
+        # _, predicted_indices = torch.max(classification_prediction, dim=1)
+        # classification_results = ['real' if idx == 0 else 'fake' for idx in predicted_indices]
+        # modified_text_input = self.modify_text_input_with_classification(samples["text_input"], classification_results)
+        # samples['text_input'] = modified_text_input
+
+        # ----------
 
         inputs_llm = self.llm_proj(
             query_output.last_hidden_state[:, : query_tokens.size(1), :]
@@ -307,9 +424,17 @@ class Blip2VicunaInstruct(Blip2Base):
                 return_dict=True,
                 labels=targets,
             )
-        # TODO
-        loss = outputs.loss
+        vlm_loss = outputs.loss
 
+        total_epochs = 10
+        weight_classification = (1 - (self.current_epoch / total_epochs)) * 0.5
+        # weight_contrastive = (self.current_epoch / total_epochs) * 0.5
+
+        # ----- new ----- classification
+        loss = vlm_loss + weight_classification * classification_loss
+        # ----- new ----- contrastive loss
+        # loss = vlm_loss + contrastive_loss * 0.5
+        # loss = vlm_loss + weight_classification* classification_loss + weight_contrastive *contrastive_loss
         return {"loss": loss}
 
     @torch.no_grad()
@@ -389,7 +514,8 @@ class Blip2VicunaInstruct(Blip2Base):
             for j in range(image.size(2)):
                 this_frame = image[:, :, j, :, :]
                 with self.maybe_autocast():
-                    frame_embeds = self.ln_vision(self.visual_encoder(this_frame))
+                    final_output, intermediate_outputs = self.visual_encoder(this_frame)
+                    frame_embeds = self.ln_vision(final_output)
                 frame_atts = torch.ones(frame_embeds.size()[:-1], dtype=torch.long).to(
                     image.device
                 )
@@ -422,7 +548,8 @@ class Blip2VicunaInstruct(Blip2Base):
             atts_llm = torch.cat(atts_llm, dim=1)
         else:
             with self.maybe_autocast():
-                image_embeds = self.ln_vision(self.visual_encoder(image))
+                final_output, intermediate_outputs = self.visual_encoder(image)
+                image_embeds = self.ln_vision(final_output)
             image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(
                 image.device
             )
@@ -443,6 +570,13 @@ class Blip2VicunaInstruct(Blip2Base):
                     encoder_attention_mask=image_atts,
                     return_dict=True,
                 )
+            # ----- new ----- add classification result to llm input prmopt
+            # classification_prediction = self.cls_head(query_output.last_hidden_state[:, 0, :])
+            # _, predicted_indices = torch.max(classification_prediction, dim=1)
+            # classification_results = ['real' if idx == 0 else 'fake' for idx in predicted_indices]
+            # modified_text_input = self.modify_text_input_with_classification(prompt, classification_results)
+            # prompt = modified_text_input
+            # ----------
 
             inputs_llm = self.llm_proj(
                 query_output.last_hidden_state[:, : query_tokens.size(1), :]
@@ -670,7 +804,8 @@ class Blip2VicunaInstruct(Blip2Base):
             for j in range(image.size(2)):
                 this_frame = image[:, :, j, :, :]
                 with self.maybe_autocast():
-                    frame_embeds = self.ln_vision(self.visual_encoder(this_frame))
+                    final_output, intermediate_outputs = self.visual_encoder(this_frame)
+                    frame_embeds = self.ln_vision(final_output)
                     frame_atts = torch.ones(
                         frame_embeds.size()[:-1], dtype=torch.long
                     ).to(image.device)
@@ -704,7 +839,9 @@ class Blip2VicunaInstruct(Blip2Base):
             atts_llm = torch.cat(atts_llm, dim=1)
         else:
             with self.maybe_autocast():
-                image_embeds = self.ln_vision(self.visual_encoder(image))
+                image_embeds, intermediate_outputs = self.ln_vision(
+                    self.visual_encoder(image)
+                )
             image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(
                 image.device
             )
