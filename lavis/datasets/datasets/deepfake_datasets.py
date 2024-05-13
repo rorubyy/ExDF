@@ -25,6 +25,9 @@ class __DisplMixin:
 class DeepfakeDataset(BaseDataset):
     def __init__(self, vis_processor, text_processor, vis_root, ann_paths):
         super().__init__(vis_processor, text_processor, vis_root, ann_paths)
+        self.positives = {}
+        self.negatives = {}
+        self.prepare_examples()
 
     def __getitem__(self, index):
         ann = self.annotation[index]
