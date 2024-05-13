@@ -134,6 +134,10 @@ class Blip2VicunaInstruct(Blip2Base):
 
         self.qformer_text_input = qformer_text_input
         
+        
+    def set_current_epoch(self, epoch):
+        self.current_epoch = epoch
+
 
     def concat_text_input_output(self, input_ids, input_atts, output_ids, output_atts):
         input_part_targets_len = []
@@ -205,6 +209,43 @@ class Blip2VicunaInstruct(Blip2Base):
                 encoder_attention_mask=image_atts,
                 return_dict=True,
             )
+             # ----- new ----- constrative learning loss
+            # if samples["positive_outputs"] and samples["negative_outputs"]:
+            #     pos_text_Qformer = self.tokenizer(
+            #         samples["positive_outputs"],
+            #         padding='longest',
+            #         truncation=True,
+            #         max_length=self.max_txt_len,
+            #         return_tensors="pt",
+            #     ).to(image.device)    
+            #     pos_Qformer_atts = torch.cat([query_atts, pos_text_Qformer.attention_mask],dim=1)
+            
+            #     neg_text_Qformer = self.tokenizer(
+            #         samples["negative_outputs"],
+            #         padding='longest',
+            #         truncation=True,
+            #         max_length=self.max_txt_len,
+            #         return_tensors="pt",
+            #     ).to(image.device)
+            #     neg_Qformer_atts = torch.cat([query_atts, neg_text_Qformer.attention_mask],dim=1)
+
+            #     pos_query_output = self.Qformer.bert(
+            #         pos_text_Qformer.input_ids,
+            #         attention_mask=pos_Qformer_atts,
+            #         query_embeds=query_tokens,
+            #         encoder_hidden_states=image_embeds,
+            #         encoder_attention_mask=image_atts,
+            #         return_dict=True,
+            #     )
+                
+            #     neg_query_output = self.Qformer.bert(
+            #         neg_text_Qformer.input_ids,
+            #         attention_mask=neg_Qformer_atts,
+            #         query_embeds=query_tokens,
+            #         encoder_hidden_states=image_embeds,
+            #         encoder_attention_mask=image_atts,
+            #         return_dict=True,
+            #     ) 
         else:
             query_output = self.Qformer.bert(
                 query_embeds=query_tokens,
@@ -232,6 +273,13 @@ class Blip2VicunaInstruct(Blip2Base):
 
         # ----------
 
+        # -----new ----- text contrastive learning loss
+        # cls_original = query_output.last_hidden_state[:, 0, :]
+        # cls_positive = pos_query_output.last_hidden_state[:, 0, :]
+        # cls_negative = neg_query_output.last_hidden_state[:, 0, :]
+        # contrastive_loss = self.compute_contrastive_loss(cls_original, cls_positive, cls_negative)
+
+        # ---------
 
         inputs_llm = self.llm_proj(query_output.last_hidden_state[:,:query_tokens.size(1),:])
         atts_llm = torch.ones(inputs_llm.size()[:-1], dtype=torch.long).to(image.device)
@@ -307,9 +355,15 @@ class Blip2VicunaInstruct(Blip2Base):
                 labels=targets,
             )
         vlm_loss = outputs.loss
+        
+        total_epochs = 10
+        weight_classification = (1 - (self.current_epoch / total_epochs)) * 0.5
+        # weight_contrastive = (self.current_epoch / total_epochs) * 0.5
 
         # ----- new ----- classification
-        loss = vlm_loss + classification_loss
+        loss = vlm_loss + weight_classification * classification_loss
+        # ----- new ----- contrastive loss
+        # loss = vlm_loss + weight_classification* classification_loss + weight_contrastive *contrastive_loss
         return {"loss": loss}
 
     @torch.no_grad()

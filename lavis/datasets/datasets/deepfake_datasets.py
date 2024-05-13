@@ -35,16 +35,36 @@ class DeepfakeDataset(BaseDataset):
         image = self.vis_processor(image)
         text_input = self.text_processor(ann["text_input"])
         text_output = self.text_processor(ann["text_output"])
-
+        positive_outputs = self.text_processor(self.positives) 
+        negative_outputs = self.text_processor(self.negatives) 
         weights = [1]  
 
         return {
             "image": image,
             "text_input": text_input,
             "text_output": text_output,
+            "positive_outputs": positive_outputs,
+            "negative_outputs": negative_outputs,
             "weights": weights,
             "label": ann["label"],
         }
+
+
+    def prepare_examples(self):
+        for idx, ann in enumerate(self.annotation):
+            current_attributes = set(ann["attribute"])
+
+            for i, a in enumerate(self.annotation):
+                if i != idx:
+                    if set(a["attribute"]) == current_attributes:
+                        self.positives=a["text_output"]
+                        break
+
+            for i, a in enumerate(self.annotation):
+                if i != idx:
+                    if set(a["attribute"]) != current_attributes:
+                        self.negatives=a["text_output"]
+                        break
 
 
 class DeepfakeEvalDataset(BaseDataset, __DisplMixin):
