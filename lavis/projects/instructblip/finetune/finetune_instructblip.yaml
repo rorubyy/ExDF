@@ -8,11 +8,11 @@ model:
   arch: blip2_vicuna_instruct
   model_type: vicuna7b
   load_pretrained: True
-  load_finetuned: True 
+  load_finetuned: False 
   freeze_vit: True
   
   pretrained: "https://storage.googleapis.com/sfr-vision-language-research/LAVIS/models/InstructBLIP/instruct_blip_vicuna7b_trimmed.pth"
-  finetuned: "/storage1/ruby/LAVIS/lavis/output/result/classification_loss_1.pth" 
+  # finetuned: "/storage1/ruby/LAVIS/lavis/output/result/classification_loss_1.pth" 
 
 datasets:
     deepfake:
@@ -49,7 +49,7 @@ run:
   accum_grad_iters: 1
 
   seed: 42
-  output_dir: "output/BLIP2/dd-vqa"
+  output_dir: "output/BLIP2/ff++"
 
   amp: False
   resume_ckpt_path: null
