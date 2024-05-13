@@ -54,8 +54,8 @@ def calculate_metrics(gts, res):
 
 
 def main():
-    gt_files = "/storage1/ruby/thesis_dataset/ann/test/classification/random_text_input/mfg-test.json"
-    ans_files = "/storage1/ruby/LAVIS/lavis/output/result/multitask-random-classificaiton-llminput.json"
+    gt_files = "/storage1/ruby/thesis_dataset/ann/test/generation/fixed_text_input/mfg-test.json"
+    ans_files = "/storage1/ruby/LAVIS/lavis/output/result/classification/test.json"
 
     gts, res = {}, {}
 

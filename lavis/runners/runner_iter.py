@@ -128,7 +128,7 @@ class RunnerIter(RunnerBase):
                             val_log.update({"best_iters": best_iters})
                             self.log_stats(val_log, split_name)
 
-                            # check for early stopping
+                            # check for early stop
                             if self.no_improve_epochs >= self.max_no_improve_epochs:
                                 logging.info("Early stopping triggered after {} epochs without improvement.".format(self.no_improve_epochs))
                                 return  # Exit the training loop

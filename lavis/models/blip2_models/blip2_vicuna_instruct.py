@@ -133,8 +133,9 @@ class Blip2VicunaInstruct(Blip2Base):
         self._lemmatizer = None
 
         self.qformer_text_input = qformer_text_input
-        
+        self.current_epoch = 0
 
+        
     def concat_text_input_output(self, input_ids, input_atts, output_ids, output_atts):
         input_part_targets_len = []
         llm_tokens = {"input_ids": [], "attention_mask": []}
@@ -185,6 +186,9 @@ class Blip2VicunaInstruct(Blip2Base):
         labels = torch.zeros(logits.size(0), dtype=torch.long).to(anchor.device)
         loss = F.cross_entropy(logits, labels)
         return loss
+
+    def set_current_epoch(self, epoch):
+        self.current_epoch = epoch
 
     def forward(self, samples):
         image = samples["image"]
