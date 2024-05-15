@@ -139,7 +139,6 @@ class Blip2VicunaInstruct(Blip2Base):
 
         self.qformer_text_input = qformer_text_input
 
-
     def set_current_epoch(self, epoch):
         self.current_epoch = epoch
 
@@ -212,26 +211,13 @@ class Blip2VicunaInstruct(Blip2Base):
             image.device
         )
 
-        def weighted_average_features(layers, weights):
-            assert len(layers) == len(
-                weights
-            ), "The number of layers and weights must match"
-            weighted_sum = sum(w * layer for w, layer in zip(weights, layers))
-            return weighted_sum
-        
-        selected_layers_indices = [2, 7, 12, 18, 24, 30, 36]  
+        selected_layers_indices = [2, 7, 12, 18, 24, 30, 36]
         selected_layers = [intermediate_outputs[i] for i in selected_layers_indices]
-        fused_features = torch.cat(selected_layers, dim=-1) 
-        adaptation_layer = nn.Linear(fused_features.shape[-1], image_embeds.shape[-1])
-        fused_features = adaptation_layer(fused_features)
-
-        # front_layers = intermediate_outputs[:3]
-        # back_layers = intermediate_outputs[-3:]
-
-        # front_weights = [1 / 3] * 3
-        # back_weights = [1 / 3] * 3
-        # front_features = weighted_average_features(front_layers, front_weights)
-        # back_features = weighted_average_features(back_layers, back_weights)
+        fused_features = torch.cat(selected_layers, dim=-1)
+        adaptation_layer = nn.Linear(
+            fused_features.shape[-1], image_embeds.shape[-1]
+        ).to(fused_features.device)
+        fused_features_embeds = self.ln_vision(adaptation_layer(fused_features))
 
         query_tokens = self.query_tokens.expand(image_embeds.shape[0], -1, -1)
         if self.qformer_text_input:
@@ -248,7 +234,7 @@ class Blip2VicunaInstruct(Blip2Base):
             )
             Qformer_atts = torch.cat([query_atts, text_Qformer.attention_mask], dim=1)
 
-            query_output = self.Qformer.bert(
+            classification_query_output = self.Qformer.bert(
                 text_Qformer.input_ids,
                 attention_mask=Qformer_atts,
                 query_embeds=query_tokens,
@@ -256,11 +242,11 @@ class Blip2VicunaInstruct(Blip2Base):
                 encoder_attention_mask=image_atts,
                 return_dict=True,
             )
-            fuse_query_output = self.Qformer.bert(
+            query_output = self.Qformer.bert(
                 text_Qformer.input_ids,
                 attention_mask=Qformer_atts,
                 query_embeds=query_tokens,
-                encoder_hidden_states=fused_features,
+                encoder_hidden_states=fused_features_embeds,
                 encoder_attention_mask=image_atts,
                 return_dict=True,
             )
@@ -268,27 +254,31 @@ class Blip2VicunaInstruct(Blip2Base):
             if samples["positive_outputs"] and samples["negative_outputs"]:
                 pos_text_Qformer = self.tokenizer(
                     samples["positive_outputs"],
-                    padding='longest',
+                    padding="longest",
                     truncation=True,
                     max_length=self.max_txt_len,
                     return_tensors="pt",
                 ).to(image.device)
-                pos_Qformer_atts = torch.cat([query_atts, pos_text_Qformer.attention_mask],dim=1)
+                pos_Qformer_atts = torch.cat(
+                    [query_atts, pos_text_Qformer.attention_mask], dim=1
+                )
 
                 neg_text_Qformer = self.tokenizer(
                     samples["negative_outputs"],
-                    padding='longest',
+                    padding="longest",
                     truncation=True,
                     max_length=self.max_txt_len,
                     return_tensors="pt",
                 ).to(image.device)
-                neg_Qformer_atts = torch.cat([query_atts, neg_text_Qformer.attention_mask],dim=1)
+                neg_Qformer_atts = torch.cat(
+                    [query_atts, neg_text_Qformer.attention_mask], dim=1
+                )
 
                 pos_query_output = self.Qformer.bert(
                     pos_text_Qformer.input_ids,
                     attention_mask=pos_Qformer_atts,
                     query_embeds=query_tokens,
-                    encoder_hidden_states=fused_features,
+                    encoder_hidden_states=fused_features_embeds,
                     encoder_attention_mask=image_atts,
                     return_dict=True,
                 )
@@ -297,7 +287,7 @@ class Blip2VicunaInstruct(Blip2Base):
                     neg_text_Qformer.input_ids,
                     attention_mask=neg_Qformer_atts,
                     query_embeds=query_tokens,
-                    encoder_hidden_states=fused_features,
+                    encoder_hidden_states=fused_features_embeds,
                     encoder_attention_mask=image_atts,
                     return_dict=True,
                 )
@@ -313,20 +303,22 @@ class Blip2VicunaInstruct(Blip2Base):
         cls_original = query_output.last_hidden_state[:, 0, :]
         cls_positive = pos_query_output.last_hidden_state[:, 0, :]
         cls_negative = neg_query_output.last_hidden_state[:, 0, :]
-        contrastive_loss = self.compute_contrastive_loss(cls_original, cls_positive, cls_negative)
+        contrastive_loss = self.compute_contrastive_loss(
+            cls_original, cls_positive, cls_negative
+        )
         # ---------
 
         # ----- new ----- classification
-        # classification_targets = samples["label"]
-        # label_to_index = {"real": 0, "fake": 1}
-        # target_indices = [label_to_index[label] for label in classification_targets]
-
-        # target_tensor = torch.tensor(target_indices).to("cuda:0")
-
-        # classification_prediction = self.cls_head(
-        #     class_query_output.last_hidden_state[:, 0, :]
-        # )
-        # classification_loss = F.cross_entropy(classification_prediction, target_tensor)
+        classification_targets = samples["label"]
+        label_to_index = {"real": 0, "fake": 1}
+        target_indices = [label_to_index[label] for label in classification_targets]
+        classification_prediction = self.cls_head(
+            classification_query_output.last_hidden_state[:, 0, :]
+        )
+        target_tensor = torch.tensor(target_indices).to(
+            classification_prediction.device
+        )
+        classification_loss = F.cross_entropy(classification_prediction, target_tensor)
         # ----------
 
         # ----- new ----- get classification result
@@ -399,7 +391,6 @@ class Blip2VicunaInstruct(Blip2Base):
 
         inputs_embeds = self.llm_model.get_input_embeddings()(llm_tokens["input_ids"])
 
-
         inputs_embeds = torch.cat([inputs_llm, inputs_embeds], dim=1)
         # NEW
         # FIXME TI
@@ -429,8 +420,12 @@ class Blip2VicunaInstruct(Blip2Base):
         # ----- new ----- classification
         # loss = vlm_loss + weight_classification * classification_loss
         # ----- new ----- contrastive loss
-        loss = vlm_loss + contrastive_loss * weight_contrastive
-        # loss = vlm_loss + weight_classification* classification_loss + weight_contrastive *contrastive_loss
+        # loss = vlm_loss + contrastive_loss * weight_contrastive
+        loss = (
+            vlm_loss
+            + weight_classification * classification_loss
+            + weight_contrastive * contrastive_loss
+        )
         return {"loss": loss}
 
     @torch.no_grad()

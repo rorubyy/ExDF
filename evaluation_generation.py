@@ -81,8 +81,8 @@ def spice(gts, res):
 
 
 def main():
-    gt_files = "/storage1/ruby/thesis_dataset/ann/test/generation/random_text_input/iDiff-test.json"
-    ans_files = "/storage1/ruby/LAVIS/lavis/output/result/generation/stage2_instructBLIP_random_text.json"
+    gt_files = "/storage1/ruby/thesis_dataset/ann/test/generation/fixed_text_input/iDiff-test.json"
+    ans_files = "/storage1/ruby/LAVIS/lavis/output/4/iDiff.json"
 
     gts, res = {}, {}
 
