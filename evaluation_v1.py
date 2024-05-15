@@ -6,7 +6,6 @@
 """
 
 import argparse
-import os
 import random
 
 import numpy as np
@@ -17,25 +16,20 @@ import lavis.tasks as tasks
 from lavis.common.config import Config
 from lavis.common.dist_utils import get_rank, init_distributed_mode
 from lavis.common.logger import setup_logger
-from lavis.common.optims import (
-    LinearWarmupCosineLRScheduler,
-    LinearWarmupStepLRScheduler,
-)
-from lavis.common.registry import registry
 from lavis.common.utils import now
 
 # imports modules for registration
 from lavis.datasets.builders import *
 from lavis.models import *
 from lavis.processors import *
-from lavis.runners import *
+from lavis.runners.runner_base import RunnerBase
 from lavis.tasks import *
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Training")
 
-    parser.add_argument("--cfg-path", help="path to configuration file.", default="/storage1/ruby/LAVIS/lavis/projects/instructblip/finetune/finetune_instructblip_qformer_llm_lora.yaml")
+    parser.add_argument("--cfg-path", default="/storage1/ruby/LAVIS/lavis/projects/instructblip/finetune/finetune_instructblip.yaml")
     parser.add_argument(
         "--options",
         nargs="+",
@@ -62,15 +56,6 @@ def setup_seeds(config):
     cudnn.deterministic = True
 
 
-def get_runner_class(cfg):
-    """
-    Get runner class from config. Default to epoch-based runner.
-    """
-    runner_cls = registry.get_runner_class(cfg.run_cfg.get("runner", "runner_base"))
-
-    return runner_cls
-
-
 def main():
     # allow auto-dl completes on main process without timeout when using NCCL backend.
     # os.environ["NCCL_BLOCKING_WAIT"] = "1"
@@ -93,10 +78,10 @@ def main():
     datasets = task.build_datasets(cfg)
     model = task.build_model(cfg)
 
-    runner = get_runner_class(cfg)(
+    runner = RunnerBase(
         cfg=cfg, job_id=job_id, task=task, model=model, datasets=datasets
     )
-    runner.train()
+    runner.evaluate(skip_reload=True)
 
 
 if __name__ == "__main__":

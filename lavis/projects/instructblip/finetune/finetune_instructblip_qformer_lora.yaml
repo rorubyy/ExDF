@@ -1,0 +1,77 @@
+ # Copyright (c) 2022, salesforce.com, inc.
+ # All rights reserved.
+ # SPDX-License-Identifier: BSD-3-Clause
+ # For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+
+model:
+  # arch: blip2_vicuna_instruct_textinv
+  arch: blip2_vicuna_instruct_qformer_lora
+  model_type: vicuna7b
+  load_pretrained: True #pretrain from scratch
+  pretrained: "https://storage.googleapis.com/sfr-vision-language-research/LAVIS/models/InstructBLIP/instruct_blip_vicuna7b_trimmed.pth"
+  freeze_vit: True
+  # finetuned: "" 
+
+  # qformer PEFT parameters
+  lora_r: 8
+  lora_alpha: 8
+  lora_dropout: 0
+  self_attention_qv_lora: True
+  self_attention_output_lora: False
+  ffn_lora: True
+  qformer_crossattention_lora_q: True
+  qformer_crossattention_lora_k: True
+  qformer_crossattention_lora_v: True
+  qformer_crossattention_lora_o: True
+
+datasets:
+    deepfake:
+      vis_processor:
+          train:
+            name: "blip2_image_train"
+            image_size: 224
+          eval:
+            name: "blip_image_eval"
+            image_size: 224
+      text_processor:
+          train:
+            name: "blip_caption"
+          eval:
+            name: "blip_caption"
+      build_info:
+          images:
+              storage: '/storage1/ruby/thesis_dataset'
+
+run:
+  task: vqa
+  # optimizer
+  lr_sched: "linear_decay_lr"
+  init_lr: 5e-4
+  min_lr: 0
+  warmup_lr: 5e-4
+  warmup_steps: 1000
+  weight_decay: 0.05
+  max_epoch: 2
+  batch_size_train: 6
+  batch_size_eval: 6
+  lr_layer_decay: 0.95 # layer-wise learning rate decay for the ViT 
+  num_workers: 4
+  accum_grad_iters: 1
+
+  seed: 42
+  output_dir: "output/BLIP2/testing"
+
+  amp: False
+  resume_ckpt_path: null
+
+  evaluate: False
+  train_splits: ["train"]
+  valid_splits: ["val"]
+  test_splits: ["test"]
+  k_test: 128
+
+  device: "cuda"
+  world_size: 1
+  dist_url: "env://"
+  distributed: True
+  use_dist_eval_sampler: False

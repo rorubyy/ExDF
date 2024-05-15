@@ -20,6 +20,7 @@ from lavis.common.utils import is_url
 from lavis.common.dist_utils import download_cached_file
 from lavis.models.blip2_models.Qformer_lora import lora, custom_lora, mark_only_lora_as_trainable, check_lora_application
 
+import torch.nn.functional as F
 
 @registry.register_model("blip2_vicuna_instruct_qformer_llm_lora")
 class Blip2VicunaInstructQformerLLMLoRA(Blip2Base):
@@ -150,6 +151,24 @@ class Blip2VicunaInstructQformerLLMLoRA(Blip2Base):
         self.llm_proj = nn.Linear(
             self.Qformer.config.hidden_size, self.llm_model.config.hidden_size
         )
+        
+        # ----- new ----- convert llm model to float 32
+        for name, param in self.llm_model.named_parameters():
+            if 'lora' in name:
+                param.data = param.data.float()  
+                print(f"Converted {name} to float32")
+        
+        # ----- new ----- classification
+        Qformer_hidden_size = self.Qformer.config.hidden_size
+        llm_hidden_size = self.llm_model.config.hidden_size
+        self.llm_proj = nn.Linear(Qformer_hidden_size, llm_hidden_size)
+        num_classes = 2
+        self.cls_head = nn.Sequential(
+            nn.Linear(Qformer_hidden_size, Qformer_hidden_size),
+            nn.ReLU(),
+            nn.Linear(Qformer_hidden_size, num_classes),
+        )
+        # ----------
 
         self.max_txt_len = max_txt_len
         self.max_output_txt_len = max_output_txt_len
@@ -185,32 +204,63 @@ class Blip2VicunaInstructQformerLLMLoRA(Blip2Base):
         llm_tokens['attention_mask'] = torch.stack(llm_tokens['attention_mask'])
         return llm_tokens, input_part_targets_len
 
-    def forward(self, samples):
-        # print('-----------------')
-        # print(samples["text_input"])
-        # print(samples["text_output"])
-        # print('-----------------')
 
+    def compute_contrastive_loss(self, anchor, positive, negative, tau=0.07):
+        def cosine_similarity(x, y):
+            x_norm = x / (torch.norm(x, dim=1, keepdim=True) + 1e-6)
+            y_norm = y / (torch.norm(y, dim=1, keepdim=True) + 1e-6)
+            return torch.sum(x_norm * y_norm, dim=1)
+
+        positive_similarity = cosine_similarity(anchor, positive) / tau
+        negative_similarity = cosine_similarity(anchor, negative) / tau
+
+        logits = torch.cat(
+            [positive_similarity.unsqueeze(1), negative_similarity.unsqueeze(1)], dim=1
+        )
+
+        labels = torch.zeros(logits.size(0), dtype=torch.long).to(anchor.device)
+        loss = F.cross_entropy(logits, labels)
+        return loss
+
+
+    def set_current_epoch(self, epoch):
+        self.current_epoch = epoch
+    
+    
+    def forward(self, samples):
         image = samples["image"]
         with self.maybe_autocast():
-            image_embeds = self.ln_vision(self.visual_encoder(image))
-        image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(image.device)
+            final_output, intermediate_outputs = self.visual_encoder(image)
+            image_embeds = self.ln_vision(final_output)
 
-        bs = image.size(0)
+        image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(
+            image.device
+        )
+
+        selected_layers_indices = [2, 7, 12, 18, 24, 30, 36]
+        selected_layers = [intermediate_outputs[i] for i in selected_layers_indices]
+        fused_features = torch.cat(selected_layers, dim=-1)
+        adaptation_layer = nn.Linear(
+            fused_features.shape[-1], image_embeds.shape[-1]
+        ).to(fused_features.device)
+        fused_features_embeds = self.ln_vision(adaptation_layer(fused_features))
 
         query_tokens = self.query_tokens.expand(image_embeds.shape[0], -1, -1)
         if self.qformer_text_input:
             text_Qformer = self.tokenizer(
                 samples["text_input"],
-                padding='longest',
+                padding="longest",
                 truncation=True,
                 max_length=self.max_txt_len,
                 return_tensors="pt",
             ).to(image.device)
-            query_atts = torch.ones(query_tokens.size()[:-1], dtype=torch.long).to(image.device)
-            Qformer_atts = torch.cat([query_atts, text_Qformer.attention_mask],dim=1)
 
-            query_output = self.Qformer.bert(
+            query_atts = torch.ones(query_tokens.size()[:-1], dtype=torch.long).to(
+                image.device
+            )
+            Qformer_atts = torch.cat([query_atts, text_Qformer.attention_mask], dim=1)
+
+            classification_query_output = self.Qformer.bert(
                 text_Qformer.input_ids,
                 attention_mask=Qformer_atts,
                 query_embeds=query_tokens,
@@ -218,6 +268,55 @@ class Blip2VicunaInstructQformerLLMLoRA(Blip2Base):
                 encoder_attention_mask=image_atts,
                 return_dict=True,
             )
+            query_output = self.Qformer.bert(
+                text_Qformer.input_ids,
+                attention_mask=Qformer_atts,
+                query_embeds=query_tokens,
+                encoder_hidden_states=fused_features_embeds,
+                encoder_attention_mask=image_atts,
+                return_dict=True,
+            )
+            #  ----- new ----- constrative learning loss
+            if samples["positive_outputs"] and samples["negative_outputs"]:
+                pos_text_Qformer = self.tokenizer(
+                    samples["positive_outputs"],
+                    padding="longest",
+                    truncation=True,
+                    max_length=self.max_txt_len,
+                    return_tensors="pt",
+                ).to(image.device)
+                pos_Qformer_atts = torch.cat(
+                    [query_atts, pos_text_Qformer.attention_mask], dim=1
+                )
+
+                neg_text_Qformer = self.tokenizer(
+                    samples["negative_outputs"],
+                    padding="longest",
+                    truncation=True,
+                    max_length=self.max_txt_len,
+                    return_tensors="pt",
+                ).to(image.device)
+                neg_Qformer_atts = torch.cat(
+                    [query_atts, neg_text_Qformer.attention_mask], dim=1
+                )
+
+                pos_query_output = self.Qformer.bert(
+                    pos_text_Qformer.input_ids,
+                    attention_mask=pos_Qformer_atts,
+                    query_embeds=query_tokens,
+                    encoder_hidden_states=fused_features_embeds,
+                    encoder_attention_mask=image_atts,
+                    return_dict=True,
+                )
+
+                neg_query_output = self.Qformer.bert(
+                    neg_text_Qformer.input_ids,
+                    attention_mask=neg_Qformer_atts,
+                    query_embeds=query_tokens,
+                    encoder_hidden_states=fused_features_embeds,
+                    encoder_attention_mask=image_atts,
+                    return_dict=True,
+                )
         else:
             query_output = self.Qformer.bert(
                 query_embeds=query_tokens,
@@ -226,22 +325,54 @@ class Blip2VicunaInstructQformerLLMLoRA(Blip2Base):
                 return_dict=True,
             )
 
-        inputs_llm = self.llm_proj(query_output.last_hidden_state[:,:query_tokens.size(1),:])
+        # -----new ----- text contrastive learning loss
+        cls_original = query_output.last_hidden_state[:, 0, :]
+        cls_positive = pos_query_output.last_hidden_state[:, 0, :]
+        cls_negative = neg_query_output.last_hidden_state[:, 0, :]
+        contrastive_loss = self.compute_contrastive_loss(
+            cls_original, cls_positive, cls_negative
+        )
+        # ---------
+
+        # ----- new ----- classification
+        classification_targets = samples["label"]
+        label_to_index = {"real": 0, "fake": 1}
+        target_indices = [label_to_index[label] for label in classification_targets]
+        classification_prediction = self.cls_head(
+            classification_query_output.last_hidden_state[:, 0, :]
+        )
+        target_tensor = torch.tensor(target_indices).to(
+            classification_prediction.device
+        )
+        classification_loss = F.cross_entropy(classification_prediction, target_tensor)
+        # ----------
+
+        # ----- new ----- get classification result
+        # _, predicted_indices = torch.max(classification_prediction, dim=1)
+        # classification_results = ['real' if idx == 0 else 'fake' for idx in predicted_indices]
+        # modified_text_input = self.modify_text_input_with_classification(samples["text_input"], classification_results)
+        # samples['text_input'] = modified_text_input
+
+        # ----------
+
+        inputs_llm = self.llm_proj(
+            query_output.last_hidden_state[:, : query_tokens.size(1), :]
+        )
         atts_llm = torch.ones(inputs_llm.size()[:-1], dtype=torch.long).to(image.device)
 
         self.llm_tokenizer.padding_side = "right"
-        self.llm_tokenizer.truncation_side = 'left'
+        self.llm_tokenizer.truncation_side = "left"
         text_input_tokens = self.llm_tokenizer(
-            samples['text_input'],
+            samples["text_input"],
             return_tensors="pt",
             padding="longest",
             truncation=True,
             max_length=self.max_txt_len,
         ).to(image.device)
 
-        self.llm_tokenizer.truncation_side = 'right'
+        self.llm_tokenizer.truncation_side = "right"
         text_output_tokens = self.llm_tokenizer(
-            [t + self.llm_tokenizer.eos_token for t in samples['text_output']],
+            [t + self.llm_tokenizer.eos_token for t in samples["text_output"]],
             return_tensors="pt",
             padding="longest",
             truncation=True,
@@ -256,8 +387,8 @@ class Blip2VicunaInstructQformerLLMLoRA(Blip2Base):
         )
 
         # do not apply loss to the padding
-        targets = llm_tokens['input_ids'].masked_fill(
-            llm_tokens['input_ids'] == self.llm_tokenizer.pad_token_id, -100
+        targets = llm_tokens["input_ids"].masked_fill(
+            llm_tokens["input_ids"] == self.llm_tokenizer.pad_token_id, -100
         )
 
         # do not apply loss to the text input (i.e., instruction)
@@ -269,9 +400,9 @@ class Blip2VicunaInstructQformerLLMLoRA(Blip2Base):
             torch.ones(atts_llm.size(), dtype=torch.long).to(image.device).fill_(-100)
         )
         targets = torch.cat([empty_targets, targets], dim=1)
+        # targets = torch.cat([empty_targets, targets, text_output_tokens.input_ids[:, 1].unsqueeze(1)], dim =1)
 
-        inputs_embeds = self.llm_model.get_input_embeddings()(llm_tokens['input_ids'])
-        # inputs_embeds = self.llm_model.embed_tokens(llm_tokens['input_ids'])
+        inputs_embeds = self.llm_model.get_input_embeddings()(llm_tokens["input_ids"])
 
         inputs_embeds = torch.cat([inputs_llm, inputs_embeds], dim=1)
         attention_mask = torch.cat([atts_llm, llm_tokens['attention_mask']], dim=1)
@@ -283,9 +414,21 @@ class Blip2VicunaInstructQformerLLMLoRA(Blip2Base):
                 return_dict=True,
                 labels=targets,
             )
+        vlm_loss = outputs.loss
 
-        loss = outputs.loss
+        total_epochs = 10
+        weight_classification = (1 - (self.current_epoch / total_epochs)) * 0.5
+        weight_contrastive = (self.current_epoch / total_epochs) * 0.5
 
+        # ----- new ----- classification
+        # loss = vlm_loss + weight_classification * classification_loss
+        # ----- new ----- contrastive loss
+        # loss = vlm_loss + contrastive_loss * weight_contrastive
+        loss = (
+            vlm_loss
+            + weight_classification * classification_loss
+            + weight_contrastive * contrastive_loss
+        )
         return {"loss": loss}
 
     @torch.no_grad()
@@ -344,7 +487,8 @@ class Blip2VicunaInstructQformerLLMLoRA(Blip2Base):
             for j in range(image.size(2)):
                 this_frame = image[:,:,j,:,:]
                 with self.maybe_autocast():
-                    frame_embeds = self.ln_vision(self.visual_encoder(this_frame))
+                    final_output, intermediate_outputs = self.visual_encoder(this_frame)
+                    frame_embeds = self.ln_vision(final_output)
                 frame_atts = torch.ones(frame_embeds.size()[:-1], dtype=torch.long).to(image.device)
 
                 if self.qformer_text_input:
@@ -371,7 +515,8 @@ class Blip2VicunaInstructQformerLLMLoRA(Blip2Base):
             atts_llm = torch.cat(atts_llm, dim=1)
         else:
             with self.maybe_autocast():
-                image_embeds = self.ln_vision(self.visual_encoder(image))
+                final_output, intermediate_outputs = self.visual_encoder(image)
+                image_embeds = self.ln_vision(final_output)
             image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(image.device)
 
             if self.qformer_text_input:
@@ -464,7 +609,7 @@ class Blip2VicunaInstructQformerLLMLoRA(Blip2Base):
         output_text = self.generate(
             samples,
             num_beams=num_beams,
-            max_length=max_len,
+            max_length=50,
             min_length=min_len,
             length_penalty=length_penalty
         )
@@ -569,7 +714,9 @@ class Blip2VicunaInstructQformerLLMLoRA(Blip2Base):
             for j in range(image.size(2)):
                 this_frame = image[:,:,j,:,:]
                 with self.maybe_autocast():
-                    frame_embeds = self.ln_vision(self.visual_encoder(this_frame))
+                    final_output, intermediate_outputs = self.visual_encoder(this_frame)
+                    frame_embeds = self.ln_vision(final_output)
+                    
                     frame_atts = torch.ones(frame_embeds.size()[:-1], dtype=torch.long).to(image.device)
 
                 if self.qformer_text_input:
@@ -597,7 +744,8 @@ class Blip2VicunaInstructQformerLLMLoRA(Blip2Base):
             atts_llm = torch.cat(atts_llm, dim=1)
         else:
             with self.maybe_autocast():
-                image_embeds = self.ln_vision(self.visual_encoder(image))
+                final_output, intermediate_outputs = self.visual_encoder(image)
+                image_embeds = self.ln_vision(final_output)
             image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(image.device)
 
             if self.qformer_text_input:

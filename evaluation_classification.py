@@ -53,8 +53,8 @@ def calculate_metrics(gts, res):
 
 
 def main():
-    gt_files = "/storage1/ruby/thesis_dataset/ann/test/generation/fixed_text_input/hive-test.json"
-    ans_files = "/storage1/ruby/LAVIS/lavis/output/4/hive.json"
+    gt_files = "/storage1/ruby/thesis_dataset/ann/test/generation/fixed_text_input/iDiff-test.json"
+    ans_files = "/storage1/ruby/LAVIS/lavis/output/6/iDiff.json"
 
     gts, res = {}, {}
 

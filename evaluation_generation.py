@@ -29,8 +29,8 @@ def spice(gts, res):
 
 
 def main():
-    gt_files = "/storage1/ruby/thesis_dataset/ann/test/generation/random_text_input/ip2p-test.json"
-    ans_files = "/storage1/ruby/LAVIS/lavis/output/result/generation/multitask-random-classification-llminput.json"
+    gt_files = "/storage1/ruby/thesis_dataset/ann/test/generation/fixed_text_input/hive-test.json"
+    ans_files = "/storage1/ruby/LAVIS/lavis/output/6/hive.json"
 
     gts, res = {}, {}
 

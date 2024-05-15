@@ -109,6 +109,10 @@ class VQATask(BaseTask):
         #     assert len(self.ques_files) == len(
         #         self.anno_files
         #     ), "Only support one split for evaluation."
+        # if len(self.ques_files) > 0:
+        #     assert len(self.ques_files) == len(
+        #         self.anno_files
+        #     ), "Only support one split for evaluation."
 
         return datasets
 
