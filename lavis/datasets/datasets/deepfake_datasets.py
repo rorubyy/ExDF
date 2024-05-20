@@ -4,8 +4,25 @@ from PIL import Image
 import os
 import json
 from collections import OrderedDict
+import random
 
-
+class DeepfakeUtils:
+    @staticmethod
+    def generate_instruction():
+        question_templates = [
+            "Why is this image fake?",
+            "What makes this image not real?",
+            "Point out the fake part of this image.",
+            "Identify the unnatural element in this image.",
+            "Explain the edits in this image."
+        ]
+        selected_question = random.choice(question_templates)
+        return f'''
+        You are an AI assistant specialized in analyzing photos for deepfake detection. 
+        Based on the details in the image, determine the authenticity of the image.
+        Question: {selected_question}
+        Answer:
+        '''
 
 class __DisplMixin:
     def displ_item(self, index):
@@ -34,9 +51,11 @@ class DeepfakeDataset(BaseDataset):
 
         image_path = os.path.join(self.vis_root, ann["image"])
         image = Image.open(image_path).convert("RGB")
-
         image = self.vis_processor(image)
-        text_input = self.text_processor(ann["text_input"])
+        
+        instruction = DeepfakeUtils.generate_instruction()
+
+        text_input = self.text_processor(instruction)
         text_output = self.text_processor(ann["text_output"])
         positive_outputs = self.text_processor(self.positives) 
         negative_outputs = self.text_processor(self.negatives) 
@@ -90,11 +109,11 @@ class DeepfakeEvalDataset(BaseDataset, __DisplMixin):
 
         image_path = os.path.join(self.vis_root, ann["image"])
         image = Image.open(image_path).convert("RGB")
-
         image = self.vis_processor(image)
-        text_input = self.text_processor(ann["text_input"])
+        
+        instruction = DeepfakeUtils.generate_instruction()
+        text_input = self.text_processor(instruction)
         text_output = self.text_processor(ann["text_output"])
-
 
         return {
             "image": image,
