@@ -398,4 +398,5 @@ class Cunstom_VQAEval(VQAEval):
         self.setAccuracy(self.accuracy["generation"], self.accuracy["classification"])
 
     def setAccuracy(self, gen, cla):
-        self.accuracy["overall"] = cla * 0.7 + gen * 0.3
+        # self.accuracy["overall"] = cla * 0.7 + gen * 0.3
+        self.accuracy["overall"] = cla 

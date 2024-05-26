@@ -203,21 +203,46 @@ class Blip2VicunaInstruct(Blip2Base):
 
     def forward(self, samples):
         image = samples["image"]
+        neg_image = samples["negative_images"]
+        pos_image = samples["positive_images"]
         with self.maybe_autocast():
             final_output, intermediate_outputs = self.visual_encoder(image)
             image_embeds = self.ln_vision(final_output)
+            
+
+            neg_final_outputs, neg_intermediate_outputs = self.visual_encoder(neg_image)
+            neg_image_embeds = self.ln_vision(neg_final_outputs)
+
+            pos_final_outputs, pos_intermediate_outputs = self.visual_encoder(pos_image)
+            pos_image_embeds = self.ln_vision(pos_final_outputs)
+
+            
 
         image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(
             image.device
         )
 
-        selected_layers_indices = [2, 7, 12, 18, 24, 30, 36]
+        selected_layers_indices =  [2, 7, 12, 18, 24, 30, 36, 37]  
         selected_layers = [intermediate_outputs[i] for i in selected_layers_indices]
         fused_features = torch.cat(selected_layers, dim=-1)
         adaptation_layer = nn.Linear(
             fused_features.shape[-1], image_embeds.shape[-1]
         ).to(fused_features.device)
         fused_features_embeds = self.ln_vision(adaptation_layer(fused_features))
+        
+        neg_selected_layers = [neg_intermediate_outputs[i] for i in selected_layers_indices]
+        neg_fused_features = torch.cat(neg_selected_layers, dim=-1)
+
+        pos_selected_layers = [pos_intermediate_outputs[i] for i in selected_layers_indices]
+        pos_fused_features = torch.cat(pos_selected_layers, dim=-1)
+        
+        
+        neg_adaptation_layer = nn.Linear(neg_fused_features.shape[-1], neg_image_embeds.shape[-1]).to(neg_fused_features.device)
+        neg_fused_features_embeds = self.ln_vision(neg_adaptation_layer(neg_fused_features))
+
+        pos_adaptation_layer = nn.Linear(pos_fused_features.shape[-1], pos_image_embeds.shape[-1]).to(pos_fused_features.device)
+        pos_fused_features_embeds = self.ln_vision(pos_adaptation_layer(pos_fused_features))
+
 
         query_tokens = self.query_tokens.expand(image_embeds.shape[0], -1, -1)
         if self.qformer_text_input:
@@ -234,7 +259,7 @@ class Blip2VicunaInstruct(Blip2Base):
             )
             Qformer_atts = torch.cat([query_atts, text_Qformer.attention_mask], dim=1)
 
-            classification_query_output = self.Qformer.bert(
+            query_output = self.Qformer.bert(
                 text_Qformer.input_ids,
                 attention_mask=Qformer_atts,
                 query_embeds=query_tokens,
@@ -242,7 +267,7 @@ class Blip2VicunaInstruct(Blip2Base):
                 encoder_attention_mask=image_atts,
                 return_dict=True,
             )
-            query_output = self.Qformer.bert(
+            contrastive_query_output = self.Qformer.bert(
                 text_Qformer.input_ids,
                 attention_mask=Qformer_atts,
                 query_embeds=query_tokens,
@@ -251,9 +276,9 @@ class Blip2VicunaInstruct(Blip2Base):
                 return_dict=True,
             )
             #  ----- new ----- constrative learning loss
-            if samples["positive_outputs"] and samples["negative_outputs"]:
+            if samples["negative_texts"] and samples["positive_texts"]:
                 pos_text_Qformer = self.tokenizer(
-                    samples["positive_outputs"],
+                    samples["positive_texts"],
                     padding="longest",
                     truncation=True,
                     max_length=self.max_txt_len,
@@ -264,7 +289,7 @@ class Blip2VicunaInstruct(Blip2Base):
                 )
 
                 neg_text_Qformer = self.tokenizer(
-                    samples["negative_outputs"],
+                    samples["negative_texts"],
                     padding="longest",
                     truncation=True,
                     max_length=self.max_txt_len,
@@ -287,20 +312,20 @@ class Blip2VicunaInstruct(Blip2Base):
                     neg_text_Qformer.input_ids,
                     attention_mask=neg_Qformer_atts,
                     query_embeds=query_tokens,
-                    encoder_hidden_states=fused_features_embeds,
+                    encoder_hidden_states=pos_fused_features_embeds,
                     encoder_attention_mask=image_atts,
                     return_dict=True,
                 )
         else:
             query_output = self.Qformer.bert(
                 query_embeds=query_tokens,
-                encoder_hidden_states=image_embeds,
+                encoder_hidden_states=neg_fused_features_embeds,
                 encoder_attention_mask=image_atts,
                 return_dict=True,
             )
 
         # -----new ----- text contrastive learning loss
-        cls_original = query_output.last_hidden_state[:, 0, :]
+        cls_original = contrastive_query_output.last_hidden_state[:, 0, :]
         cls_positive = pos_query_output.last_hidden_state[:, 0, :]
         cls_negative = neg_query_output.last_hidden_state[:, 0, :]
         contrastive_loss = self.compute_contrastive_loss(
@@ -313,7 +338,7 @@ class Blip2VicunaInstruct(Blip2Base):
         label_to_index = {"real": 0, "fake": 1}
         target_indices = [label_to_index[label] for label in classification_targets]
         classification_prediction = self.cls_head(
-            classification_query_output.last_hidden_state[:, 0, :]
+            query_output.last_hidden_state[:, 0, :]
         )
         target_tensor = torch.tensor(target_indices).to(
             classification_prediction.device
@@ -413,13 +438,9 @@ class Blip2VicunaInstruct(Blip2Base):
         vlm_loss = outputs.loss
 
         total_epochs = 10
-        weight_classification = (1 - (self.current_epoch / total_epochs)) * 0.5
+        weight_classification = (1 - self.current_epoch / total_epochs) * 0.5
         weight_contrastive = (self.current_epoch / total_epochs) * 0.5
 
-        # ----- new ----- classification
-        # loss = vlm_loss + weight_classification * classification_loss
-        # ----- new ----- contrastive loss
-        # loss = vlm_loss + contrastive_loss * weight_contrastive
         loss = (
             vlm_loss
             + weight_classification * classification_loss

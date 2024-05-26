@@ -6,23 +6,19 @@ import json
 from collections import OrderedDict
 import random
 
+
 class DeepfakeUtils:
     @staticmethod
     def generate_instruction():
         question_templates = [
-            "Why is this image fake?",
-            "What makes this image not real?",
-            "Point out the fake part of this image.",
-            "Identify the unnatural element in this image.",
-            "Explain the edits in this image."
+            "Is this image real or fake, and if fake, which features have been manipulated?",
+            "Can you identify any alterations in this image?",
+            "What makes this image real or fake?"
         ]
-        selected_question = random.choice(question_templates)
-        return f'''
-        You are an AI assistant specialized in analyzing photos for deepfake detection. 
-        Based on the details in the image, determine the authenticity of the image.
-        Question: {selected_question}
-        Answer:
-        '''
+        probabilities = [0.9, 0.05, 0.05]
+        selected_question = random.choices(question_templates, probabilities)[0]
+        return selected_question
+
 
 class __DisplMixin:
     def displ_item(self, index):
@@ -39,39 +35,48 @@ class __DisplMixin:
             }
         )
 
+
 class DeepfakeDataset(BaseDataset):
     def __init__(self, vis_processor, text_processor, vis_root, ann_paths):
         super().__init__(vis_processor, text_processor, vis_root, ann_paths)
-        self.positives = {}
-        self.negatives = {}
+        self.positives = {"text": [], "images": []}
+        self.negatives = {"text": [], "images": []}
         self.prepare_examples()
 
+        
     def __getitem__(self, index):
         ann = self.annotation[index]
 
         image_path = os.path.join(self.vis_root, ann["image"])
         image = Image.open(image_path).convert("RGB")
         image = self.vis_processor(image)
-        
+
         instruction = DeepfakeUtils.generate_instruction()
 
         text_input = self.text_processor(instruction)
         text_output = self.text_processor(ann["text_output"])
-        positive_outputs = self.text_processor(self.positives) 
-        negative_outputs = self.text_processor(self.negatives) 
-        weights = [1]  
+
+        positive_texts = [self.text_processor(text) for text in self.positives["text"]]
+        positive_images = [self.vis_processor(Image.open(os.path.join(self.vis_root, img)).convert("RGB")) for img in self.positives["images"]]
+
+        negative_texts = [self.text_processor(text) for text in self.negatives["text"]]
+        negative_images = [self.vis_processor(Image.open(os.path.join(self.vis_root, img)).convert("RGB")) for img in self.negatives["images"]]
+
+        weights = [1]
 
         return {
             "image": image,
             "text_input": text_input,
             "text_output": text_output,
-            "positive_outputs": positive_outputs,
-            "negative_outputs": negative_outputs,
+            "positive_texts": positive_texts,
+            "positive_images": positive_images,
+            "negative_texts": negative_texts,
+            "negative_images": negative_images,
             "weights": weights,
             "label": ann["label"],
         }
-
-
+        
+        
     def prepare_examples(self):
         for idx, ann in enumerate(self.annotation):
             current_attributes = set(ann["attribute"])
@@ -79,13 +84,15 @@ class DeepfakeDataset(BaseDataset):
             for i, a in enumerate(self.annotation):
                 if i != idx:
                     if set(a["attribute"]) == current_attributes:
-                        self.positives=a["text_output"]
+                        self.positives["text"].append(a["text_output"])
+                        self.positives["images"].append(a["image"])
                         break
 
             for i, a in enumerate(self.annotation):
                 if i != idx:
                     if set(a["attribute"]) != current_attributes:
-                        self.negatives=a["text_output"]
+                        self.negatives["text"].append(a["text_output"])
+                        self.negatives["images"].append(a["image"])
                         break
 
 
@@ -94,9 +101,9 @@ class DeepfakeEvalDataset(BaseDataset, __DisplMixin):
         self.vis_root = vis_root
         annotations = []
         for path in ann_paths:
-            with open(path, 'r') as file:
+            with open(path, "r") as file:
                 annotations.extend(json.load(file))
-        self.annotation =  annotations
+        self.annotation = annotations
         # self.annotation = json.load(open(ann_paths[0]))
 
         self.vis_processor = vis_processor
@@ -110,8 +117,8 @@ class DeepfakeEvalDataset(BaseDataset, __DisplMixin):
         image_path = os.path.join(self.vis_root, ann["image"])
         image = Image.open(image_path).convert("RGB")
         image = self.vis_processor(image)
-        
-        instruction = DeepfakeUtils.generate_instruction()
+
+        instruction = "Is this image real or fake, and if fake, which features have been manipulated?"
         text_input = self.text_processor(instruction)
         text_output = self.text_processor(ann["text_output"])
 

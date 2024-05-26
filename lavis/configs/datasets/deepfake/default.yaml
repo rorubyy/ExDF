@@ -5,20 +5,22 @@ datasets:
       annotations:
         train:
           url: https://raw.githubusercontent.com/rorubyy/jsonfile/main/train.json
-          storage: /storage1/ruby/LAVIS/deepfake/annotations/for_testing.json
+          storage: /storage1/ruby/thesis_dataset/ann/ff++/train.json
         val:
           url: https://raw.githubusercontent.com/rorubyy/jsonfile/main/val.json
-          storage: /storage1/ruby/LAVIS/deepfake/annotations/for_testing.json   
+          storage: /storage1/ruby/thesis_dataset/ann/ff++/val.json   
         test:
           url: 
               - https://raw.githubusercontent.com/rorubyy/jsonfile/main/test.json
               - https://raw.githubusercontent.com/rorubyy/jsonfile/main/test.json
-              # - https://raw.githubusercontent.com/rorubyy/jsonfile/main/test.json
-              # - https://raw.githubusercontent.com/rorubyy/jsonfile/main/test.json
+              - https://raw.githubusercontent.com/rorubyy/jsonfile/main/test.json
+              - https://raw.githubusercontent.com/rorubyy/jsonfile/main/test.json
 
           storage: 
-              - /storage1/ruby/LAVIS/deepfake/annotations/for_testing.json        
-              - /storage1/ruby/LAVIS/deepfake/annotations/for_testing.json        
+              - /storage1/ruby/thesis_dataset/ann/ff++/CDF.json        
+              - /storage1/ruby/thesis_dataset/ann/ff++/DFDC.json
+              - /storage1/ruby/thesis_dataset/ann/ff++/DFo.json    
+              - /storage1/ruby/thesis_dataset/ann/ff++/FF++.json    
        
               # - /storage1/ruby/LAVIS/deepfake/ann/test/classification/ip2p-test-stage1.json        
               # - /storage1/ruby/LAVIS/deepfake/ann/test/classification/mfg-test-stage1.json        

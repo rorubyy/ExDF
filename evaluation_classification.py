@@ -3,7 +3,7 @@ from sklearn.metrics import precision_recall_curve, auc
 
 
 def simplify_answer(answer):
-    return 1 if "fake" in answer.lower() else 0
+    return 1 if "fake" in answer.lower()  or "no" in answer.lower() else 0
 
 
 def load_data(file_path, increment_id=False):
@@ -53,8 +53,8 @@ def calculate_metrics(gts, res):
 
 
 def main():
-    gt_files = "/storage1/ruby/thesis_dataset/ann/test/generation/fixed_text_input/iDiff-test.json"
-    ans_files = "/storage1/ruby/LAVIS/lavis/output/6/iDiff.json"
+    gt_files = "/storage1/ruby/thesis_dataset/ann/ff++/FF++.json"
+    ans_files = "/storage1/ruby/LAVIS/lavis/output/BLIP2/ff++/20240523145/result/test_vqa_result_rank0.json"
 
     gts, res = {}, {}
 
