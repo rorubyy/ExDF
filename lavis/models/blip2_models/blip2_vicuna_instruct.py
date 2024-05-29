@@ -1,4 +1,12 @@
 """
+ Copyright (c) 2022, salesforce.com, inc.
+ All rights reserved.
+ SPDX-License-Identifier: BSD-3-Clause
+ For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+"""
+
+
+"""
 Requires Transformer 4.28 and above, implementation may change according the Llama implementation
 """
 import logging
@@ -13,7 +21,6 @@ import transformers
 
 from lavis.common.registry import registry
 from lavis.models.blip2_models.blip2 import Blip2Base, disabled_train
-from lavis.models.blip2_models.soft_embedding import SoftEmbedding
 
 @registry.register_model("blip2_vicuna_instruct")
 class Blip2VicunaInstruct(Blip2Base):
@@ -79,10 +86,7 @@ class Blip2VicunaInstruct(Blip2Base):
         else:
             self.Qformer.resize_token_embeddings(len(self.tokenizer))
         self.Qformer.cls = None
-        # NEW set Qformersoft_embedding
-        self.Qformer.soft_embedding = SoftEmbedding(self.Qformer.get_input_embeddings())
-        self.Qformer.set_input_embeddings(self.Qformer.soft_embedding)      
-        
+
         self.llm_tokenizer = LlamaTokenizer.from_pretrained(llm_model, use_fast=False, truncation_side="left")
         self.llm_model = LlamaForCausalLM.from_pretrained(
             llm_model, torch_dtype=torch.float16
@@ -98,15 +102,9 @@ class Blip2VicunaInstruct(Blip2Base):
         # self.eos_token_id = self.llm_tokenizer(
         #     self.llm_tokenizer.eos_token, add_special_tokens=False
         # ).input_ids[0]
-        
-        # NEW set LLM soft_embedding
-        self.llm_model.soft_embedding = SoftEmbedding(self.llm_model.get_input_embeddings()).to(torch.float32)
-        self.llm_model.set_input_embeddings(self.llm_model.soft_embedding)
 
         for name, param in self.llm_model.named_parameters():
             param.requires_grad = False
-            if 'learned_embedding' in name:
-                param.requires_grad = True 
 
         self.llm_proj = nn.Linear(
             self.Qformer.config.hidden_size, self.llm_model.config.hidden_size
@@ -121,7 +119,6 @@ class Blip2VicunaInstruct(Blip2Base):
         self._lemmatizer = None
 
         self.qformer_text_input = qformer_text_input
-        
 
     def concat_text_input_output(self, input_ids, input_atts, output_ids, output_atts):
         input_part_targets_len = []
@@ -148,7 +145,6 @@ class Blip2VicunaInstruct(Blip2Base):
         return llm_tokens, input_part_targets_len
 
     def forward(self, samples):
-        # RUBY edit for sam
         # print('-----------------')
         # print(samples["text_input"])
         # print(samples["text_output"])
@@ -167,18 +163,11 @@ class Blip2VicunaInstruct(Blip2Base):
                 samples["text_input"],
                 padding='longest',
                 truncation=True,
-                max_length=self.max_txt_len,
+                max_length=50,
                 return_tensors="pt",
             ).to(image.device)
-            
             query_atts = torch.ones(query_tokens.size()[:-1], dtype=torch.long).to(image.device)
-            # FIXME TI
-            # add soft embedding mask
-            soft_prompt_mask = torch.ones([text_Qformer.attention_mask.size(0), self.Qformer.soft_embedding.n_tokens], dtype=torch.long).to(image.device)
-            extended_mask = torch.cat([soft_prompt_mask, text_Qformer.attention_mask], dim=1)
-            Qformer_atts = torch.cat([query_atts, extended_mask],dim=1)
-            # Qformer_atts = torch.cat([query_atts, text_Qformer.attention_mask],dim=1)
-
+            Qformer_atts = torch.cat([query_atts, text_Qformer.attention_mask],dim=1)
 
             query_output = self.Qformer.bert(
                 text_Qformer.input_ids,
@@ -195,8 +184,6 @@ class Blip2VicunaInstruct(Blip2Base):
                 encoder_attention_mask=image_atts,
                 return_dict=True,
             )
-
-
 
         inputs_llm = self.llm_proj(query_output.last_hidden_state[:,:query_tokens.size(1),:])
         atts_llm = torch.ones(inputs_llm.size()[:-1], dtype=torch.long).to(image.device)
@@ -240,28 +227,11 @@ class Blip2VicunaInstruct(Blip2Base):
         empty_targets = (
             torch.ones(atts_llm.size(), dtype=torch.long).to(image.device).fill_(-100)
         )
-        # NEW
-        # FIXME TI
-        empty_targets_soft_embedding = (
-            torch.ones([atts_llm.size(0), self.llm_model.soft_embedding.n_tokens], dtype=torch.long).to(image.device).fill_(-100)
-        )
-        targets = torch.cat([empty_targets, empty_targets_soft_embedding, targets], dim=1)
-        # targets = torch.cat([empty_targets, targets], dim=1)
-        # targets = torch.cat([empty_targets, targets, text_output_tokens.input_ids[:, 1].unsqueeze(1)], dim =1)
-    
-        inputs_embeds = self.llm_model.get_input_embeddings()(llm_tokens['input_ids'])
-        # batch_size = inputs_embeds.size(0)
-        # soft_embedding_adjusted = self.llm_model.base_model.soft_embedding.expand(batch_size, -1, -1)
-        # FIXME TI
-        # self.llm_model.base_model.soft_embedding = nn.Parameter(torch.mean(inputs_embeds, dim=1, keepdim=True))
-        # inputs_embeds = torch.cat([soft_embedding_adjusted, inputs_llm, inputs_embeds, ], dim=1)
+        targets = torch.cat([empty_targets, targets], dim=1)
 
+        inputs_embeds = self.llm_model.get_input_embeddings()(llm_tokens['input_ids'])
         inputs_embeds = torch.cat([inputs_llm, inputs_embeds], dim=1)
-        # NEW
-        # FIXME TI
-        extract_attention_mask = torch.ones(llm_tokens['input_ids'].size(0), self.llm_model.soft_embedding.n_tokens, device=llm_tokens['input_ids'].device)
-        attention_mask = torch.cat([atts_llm, extract_attention_mask, llm_tokens['attention_mask']], dim=1)
-        # attention_mask = torch.cat([atts_llm, llm_tokens['attention_mask']], dim=1)
+        attention_mask = torch.cat([atts_llm, llm_tokens['attention_mask']], dim=1)
 
         with self.maybe_autocast():
             outputs = self.llm_model(
@@ -270,7 +240,7 @@ class Blip2VicunaInstruct(Blip2Base):
                 return_dict=True,
                 labels=targets,
             )
-        # TODO
+
         loss = outputs.loss
 
         return {"loss": loss}
@@ -279,7 +249,7 @@ class Blip2VicunaInstruct(Blip2Base):
     def generate(
         self,
         samples,
-        use_nucleus_sampling=True,
+        use_nucleus_sampling=False,
         num_beams=5,
         max_length=256,
         min_length=1,
@@ -310,7 +280,6 @@ class Blip2VicunaInstruct(Blip2Base):
             prompt = [p.format(', '.join(samples['ocr_tokens'][i][:30])) for i, p in enumerate(prompt)]
 
         query_tokens = self.query_tokens.expand(bs, -1, -1)
-
         if self.qformer_text_input:
             # remove ocr tokens in q_former (for eval textvqa)
             # qformer_prompt = prompt
@@ -324,12 +293,7 @@ class Blip2VicunaInstruct(Blip2Base):
                 return_tensors="pt",
             ).to(image.device)
             query_atts = torch.ones(query_tokens.size()[:-1], dtype=torch.long).to(image.device)
-            # FIXME TI
-            # add soft embedding mask
-            soft_prompt_mask = torch.ones([text_Qformer.attention_mask.size(0), self.Qformer.soft_embedding.n_tokens], dtype=torch.long).to(image.device)
-            extended_mask = torch.cat([text_Qformer.attention_mask, soft_prompt_mask], dim=1)
-            Qformer_atts = torch.cat([query_atts, extended_mask], dim=1)
-            # Qformer_atts = torch.cat([query_atts, text_Qformer.attention_masktext_Qformer.attention_mask], dim=1)
+            Qformer_atts = torch.cat([query_atts, text_Qformer.attention_mask], dim=1)
 
         # For video data
         if image.dim() == 5:
@@ -393,14 +357,9 @@ class Blip2VicunaInstruct(Blip2Base):
             return_tensors="pt"
         ).to(image.device)
 
-
         with self.maybe_autocast():
-            
             inputs_embeds = self.llm_model.get_input_embeddings()(llm_tokens.input_ids)
             inputs_embeds = torch.cat([inputs_llm, inputs_embeds], dim=1)
-            # NEW
-            soft_prompt_mask = torch.ones([inputs_embeds.size(0), self.llm_model.soft_embedding.n_tokens], dtype=torch.long).to(image.device)
-            attention_mask = torch.cat([atts_llm, soft_prompt_mask, llm_tokens.attention_mask], dim=1)
             attention_mask = torch.cat([atts_llm, llm_tokens.attention_mask], dim=1)
 
             outputs = self.llm_model.generate(
@@ -419,6 +378,7 @@ class Blip2VicunaInstruct(Blip2Base):
             )
 
         outputs[outputs == 0] = 2 # convert output id 0 to 2 (eos_token_id)
+        outputs[outputs == -1] = 1 
         output_text = self.llm_tokenizer.batch_decode(outputs, skip_special_tokens=True)
         output_text = [text.strip() for text in output_text]
 
@@ -459,18 +419,10 @@ class Blip2VicunaInstruct(Blip2Base):
 
         samples["prompt"] = text_input
 
-        # output_text = self.generate(
-        #     samples,
-        #     num_beams=num_beams,
-        #     max_length=max_len,
-        #     min_length=min_len,
-        #     length_penalty=length_penalty
-        # )
-        
         output_text = self.generate(
             samples,
             num_beams=num_beams,
-            max_length=50,
+            max_length=max_len,
             min_length=min_len,
             length_penalty=length_penalty
         )
@@ -675,7 +627,6 @@ class Blip2VicunaInstruct(Blip2Base):
                 # this_llm_atts = torch.cat([this_input_tokens_atts, this_output_tokens_atts], dim=1)
 
                 inputs_embeds = self.llm_model.get_input_embeddings()(this_llm_input_ids)
-
                 inputs_embeds = torch.cat([inputs_llm.repeat_interleave(seg_len, dim=0), inputs_embeds], dim=1)
                 attention_mask = torch.cat([atts_llm.repeat_interleave(seg_len, dim=0), this_llm_atts], dim=1)
 

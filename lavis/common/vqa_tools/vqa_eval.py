@@ -13,8 +13,6 @@ __author__ = "aagrawal"
 # (https://github.com/tylin/coco-caption/blob/master/pycocoevalcap/eval.py).
 import sys
 import re
-from bert_score import score
-
 
 class VQAEval:
     def __init__(self, vqa=None, vqaRes=None, n=2):
@@ -358,7 +356,7 @@ class Cunstom_VQAEval(VQAEval):
             
             if dataset not in dataset_correct_counts:
                 dataset_correct_counts[dataset]=0
-                dataset_total_counts=0
+                dataset_total_counts[dataset]=0
             dataset_total_counts[dataset] += 1
             if resAns == gtAns:
                 dataset_correct_counts[dataset] += 1
