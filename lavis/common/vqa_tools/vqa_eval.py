@@ -348,28 +348,42 @@ class Cunstom_VQAEval(VQAEval):
             res[quesId] = self.vqaRes.qa[quesId]
 
         print("computing ACC")
-        correct_count = 0
-        total_count = len(quesIds)
-        candidate_answers = []
-        reference_answers = []
+        dataset_correct_counts = {}
+        dataset_total_counts = {}
+
         for quesId in quesIds:
             resAns = res[quesId]["answer"].lower()
             gtAns = gts[quesId]["answers"][0]["answer"].lower()
-
-            candidate_answers.append(resAns)
-            reference_answers.append(gtAns)
-
+            dataset = gts[quesId]["dataset"]
+            
+            if dataset not in dataset_correct_counts:
+                dataset_correct_counts[dataset]=0
+                dataset_total_counts=0
+            dataset_total_counts[dataset] += 1
             if resAns == gtAns:
-                correct_count += 1
+                dataset_correct_counts[dataset] += 1
+        for dataset in dataset_total_counts:
+            if dataset == "real":
+                continue
+            real_correct_count = dataset_correct_counts.get("real", 0)
+            real_total_count = dataset_total_counts.get("real", 0)
+            dataset_correct_count = dataset_correct_counts[dataset]
+            dataset_total_count = dataset_total_counts[dataset]
 
-        if total_count > 0:
-            accuracy = correct_count / total_count
-        else:
-            accuracy = 0
+            combined_correct_count = dataset_correct_count + real_correct_count
+            combined_total_count = dataset_total_count + real_total_count
 
-        print(f"Accuracy: {accuracy:.2f}")
-        print("Done computing accuracy")
-        self.accuracy["overall"] = accuracy
+            accuracy = combined_correct_count / combined_total_count if combined_total_count > 0 else 0
+            self.accuracy[dataset] = accuracy
+            print(f"Accuracy for {dataset} : {accuracy:.2f}")
+
+                
+        overall_correct_count = sum(dataset_correct_counts.values())
+        overall_total_count = sum(dataset_total_counts.values())
+        overall_accuracy = overall_correct_count / overall_total_count if overall_total_count > 0 else 0
+
+        print(f"Overall Accuracy: {overall_accuracy:.2f}")
+        self.accuracy["overall"] = overall_accuracy
 
     def setAccuracy(self, F1):
         self.accuracy["overall"] = F1.mean().item()

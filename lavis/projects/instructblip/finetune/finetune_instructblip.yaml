@@ -8,11 +8,11 @@ model:
   arch: blip2_vicuna_instruct
   model_type: vicuna7b
   load_pretrained: True
-  load_finetuned: True 
+  load_finetuned: False 
   freeze_vit: True
   
   pretrained: "https://storage.googleapis.com/sfr-vision-language-research/LAVIS/models/InstructBLIP/instruct_blip_vicuna7b_trimmed.pth"
-  finetuned: "/storage1/ruby/LAVIS/lavis/output/result/classification_loss_1.pth" 
+  # finetuned: "/storage1/ruby/LAVIS/lavis/output/result/classification_loss_1.pth" 
 
 datasets:
     deepfake:
@@ -30,7 +30,7 @@ datasets:
             name: "blip_caption"
       build_info:
           images:
-              storage: '/storage1/ruby/thesis_dataset'
+              storage: '/storage1/ruby/LAVIS/ExDF/img'
 
 run:
   task: vqa
@@ -42,14 +42,14 @@ run:
   warmup_steps: 1000
   weight_decay: 0.05
   max_epoch: 1
-  batch_size_train: 4
-  batch_size_eval: 4
+  batch_size_train: 2
+  batch_size_eval: 2
   lr_layer_decay: 0.95 # layer-wise learning rate decay for the ViT 
   num_workers: 4
   accum_grad_iters: 1
 
   seed: 42
-  output_dir: "output/BLIP2/dd-vqa"
+  output_dir: "output/BLIP2/test"
 
   amp: False
   resume_ckpt_path: null

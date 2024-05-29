@@ -227,9 +227,16 @@ class CustomVQA(VQA):
         if not annotation_file == None:
             print("loading VQA annotations and questions into memory...")
             data = json.load(open(annotation_file, "r"))
-
             self.questions["questions"] = [{"question": item["text_input"], "question_id": item["question_id"]} for item in data]
-            self.dataset["annotations"] = [{"question_id": item["question_id"], "answers": [{"answer": item["text_output"]}], "image_id": item["image"].split('/')[-1]} for item in data]
+            self.dataset["annotations"] = [
+                {
+                    "question_id": item["question_id"],
+                    "answers": [{"answer": item["text_output"]}],
+                    "image_id": item["image"].split('/')[-1],
+                    "dataset": item["dataset"]
+                }
+                for item in data
+            ]            
             self.createIndex()
         
     def loadRes_custom(self, resFile, quesFile):

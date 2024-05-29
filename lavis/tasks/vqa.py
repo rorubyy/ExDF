@@ -80,24 +80,6 @@ class VQATask(BaseTask):
                 self.anno_files[split] = annotation_paths
                 self.ques_files[split] = annotation_paths
 
-                # if (
-                #     hasattr(dataset[split], "coco_fmt_qust_file")
-                #     and dataset[split].coco_fmt_qust_file is not None
-                # ):
-                #     self.ques_files[split] = dataset[split].coco_fmt_qust_file
-                #     self.anno_files[split] = dataset[split].coco_fmt_anno_file
-
-                # try:
-                #     self.answer_list = dataset[split].answer_list
-                # except AttributeError:
-                #     # if answer_list is not provided, then set it to None
-                #     pass
-
-        # if len(self.ques_files) > 0:
-        #     assert len(self.ques_files) == len(
-        #         self.anno_files
-        #     ), "Only support one split for evaluation."
-
         return datasets
 
     def valid_step(self, model, samples):

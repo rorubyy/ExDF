@@ -17,5 +17,5 @@ class DeepfakeBuilder(BaseDatasetBuilder):
     eval_dataset_cls = DeepfakeEvalDataset
 
     DATASET_CONFIG_DICT = {
-        "default": "/storage1/ruby/LAVIS/lavis/configs/datasets/deepfake/default.yaml",
+        "default": "configs/datasets/deepfake/default.yaml",
     }
