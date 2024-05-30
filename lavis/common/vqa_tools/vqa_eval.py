@@ -373,14 +373,14 @@ class Cunstom_VQAEval(VQAEval):
 
             accuracy = combined_correct_count / combined_total_count if combined_total_count > 0 else 0
             self.accuracy[dataset] = accuracy
-            print(f"Accuracy for {dataset} : {accuracy:.2f}")
+            print(f"Accuracy for {dataset} : {accuracy:.4f}")
 
                 
         overall_correct_count = sum(dataset_correct_counts.values())
         overall_total_count = sum(dataset_total_counts.values())
         overall_accuracy = overall_correct_count / overall_total_count if overall_total_count > 0 else 0
 
-        print(f"Overall Accuracy: {overall_accuracy:.2f}")
+        print(f"Overall Accuracy: {overall_accuracy:.4f}")
         self.accuracy["overall"] = overall_accuracy
 
     def setAccuracy(self, F1):

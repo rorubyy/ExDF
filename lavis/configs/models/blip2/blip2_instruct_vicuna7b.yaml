@@ -22,7 +22,7 @@ model:
   num_query_token: 32
 
   # path to Vicuna checkpoint
-  llm_model: "llm/vicuna-7b/snapshots/9d8eea215e00b388a22e8f050768ea8911d41f1dt"
+  llm_model: "/storage1/ruby/LAVIS/llm/vicuna-7b/snapshots/9d8eea215e00b388a22e8f050768ea8911d41f1d"
 
   # generation configs
   prompt: ""

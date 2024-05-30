@@ -123,80 +123,17 @@ class VQATask(BaseTask):
         metrics = {}
 
         if split in self.ques_files and split in self.anno_files:
-            if mode == "val":
-                vqa = CustomVQA(annotation_file=self.ques_files[mode])
-                vqa_result = vqa.loadRes_custom(
-                    resFile=result_file, quesFile=self.ques_files[mode]
-                )
-                vqa_scorer = Cunstom_VQAEval(vqa, vqa_result, n=2)
-                logging.info("Start VQA evaluation.")
-                vqa_scorer.evaluate()
-                overall_acc = vqa_scorer.accuracy["overall"]
-                metrics["agg_metrics"] = overall_acc
-                logging.info("Overall Accuracy is: %.02f\n" % overall_acc)
-            else:
-                for index, ques_file in enumerate(self.ques_files[mode]):
-                    vqa = CustomVQA(annotation_file=ques_file)
-                    vqa_result = vqa.loadRes_custom(
-                        resFile=result_file, quesFile=ques_file
-                    )
-                    vqa_scorer = Cunstom_VQAEval(vqa, vqa_result, n=2)
-                    logging.info(
-                        "Start Testing VQA evaluation for file: %s" % ques_file
-                    )
-                    vqa_scorer.evaluate()
-                    logging.info(
-                        "Overall Accuracy for %s is: %.02f\n"
-                        % (ques_file, vqa_scorer.accuracy["overall"])
-                    )
-
-                    if index == 0:
-                        overall_acc = vqa_scorer.accuracy["overall"]
-                        metrics["agg_metrics"] = overall_acc
-            # vqa = VQA(self.anno_files[split], self.ques_files[split])
-            # vqa_result = vqa.loadRes(
-            #     resFile=result_file, quesFile=self.ques_files[split]
-            # )
-            # # create vqaEval object by taking vqa and vqaRes
-            # # n is precision of accuracy (number of places after decimal), default is 2
-            # vqa_scorer = VQAEval(vqa, vqa_result, n=2)
-            # logging.info("Start VQA evaluation.")
-            # vqa_scorer.evaluate()
-
-            # # print accuracies
-            # overall_acc = vqa_scorer.accuracy["overall"]
-            # metrics["agg_metrics"] = overall_acc
-
-            # logging.info("Overall Accuracy is: %.02f\n" % overall_acc)
-            # logging.info("Per Answer Type Accuracy is the following:")
-
-            # for ans_type in vqa_scorer.accuracy["perAnswerType"]:
-            #     logging.info(
-            #         "%s : %.02f"
-            #         % (ans_type, vqa_scorer.accuracy["perAnswerType"][ans_type])
-            #     )
-            #     metrics[ans_type] = vqa_scorer.accuracy["perAnswerType"][ans_type]
-
-            # with open(
-            #     os.path.join(registry.get_path("output_dir"), "evaluate.txt"), "a"
-            # ) as f:
-            #     f.write(json.dumps(metrics) + "\n")
-        # TODO change to deepfake explination
-        else:
-            if mode == "val":
-                ques_file = "/storage1/ruby/LAVIS/deepfake/ann/test/classification/ip2p-test-stage1.json"
-            else:
-                ques_file = "/storage1/ruby/LAVIS/deepfake/ann/test/classification/ip2p-test-stage1.json"
-
-            vqa = CustomVQA(annotation_file=ques_file)
-            vqa_result = vqa.loadRes_custom(resFile=result_file, quesFile=ques_file)
-            # vqa_scorer = VQAEval(vqa, vqa_result, n=2)
+            vqa = CustomVQA(annotation_file=self.ques_files[mode])
+            vqa_result = vqa.loadRes_custom(
+                resFile=result_file, quesFile=self.ques_files[mode]
+            )
             vqa_scorer = Cunstom_VQAEval(vqa, vqa_result, n=2)
             logging.info("Start VQA evaluation.")
             vqa_scorer.evaluate()
             overall_acc = vqa_scorer.accuracy["overall"]
             metrics["agg_metrics"] = overall_acc
             logging.info("Overall Accuracy is: %.02f\n" % overall_acc)
+
 
         return metrics
 

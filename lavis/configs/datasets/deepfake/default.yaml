@@ -16,5 +16,5 @@ datasets:
               - /storage1/ruby/LAVIS/deepfake/annotations/for_testing.json
 
       images:
-        storage: ExDF/img
+        storage: /storage1/ruby/thesis_dataset/image
 
