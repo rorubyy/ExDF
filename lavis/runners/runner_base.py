@@ -424,6 +424,8 @@ class RunnerBase:
 
     def train_epoch(self, epoch):
         # train
+        self.model.set_current_epoch(epoch)
+
         self.model.train()
 
         return self.task.train_epoch(
