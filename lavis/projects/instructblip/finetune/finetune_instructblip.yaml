@@ -5,7 +5,7 @@
 
 model:
   # arch: blip2_vicuna_instruct_textinv
-  arch: blip2_vicuna_instruct
+  arch: blip2_vicuna_instruct_mask_atts
   model_type: vicuna7b
   load_pretrained: True
   load_finetuned: False 
@@ -29,7 +29,7 @@ datasets:
             name: "blip_caption"
       build_info:
           images:
-              storage: '/storage1/ruby/thesis_dataset/image'
+              storage: '/storage1/ruby/LAVIS/ExDF'
 
 run:
   task: vqa
@@ -40,15 +40,15 @@ run:
   warmup_lr: 1e-8
   warmup_steps: 1000
   weight_decay: 0.05
-  max_epoch: 1
-  batch_size_train: 2
-  batch_size_eval: 2
+  max_epoch: 10
+  batch_size_train: 4
+  batch_size_eval: 4
   lr_layer_decay: 0.95 # layer-wise learning rate decay for the ViT 
   num_workers: 4
   accum_grad_iters: 1
 
   seed: 42
-  output_dir: "output/BLIP2/test"
+  output_dir: "output/BLIP2/mask"
 
   amp: False
   resume_ckpt_path: null

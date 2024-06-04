@@ -112,6 +112,9 @@ class Blip2Base(BaseModel):
         for name, param in self.named_parameters():
             # NEW
             # FIXME TI
+
+            if 'mask_decoder' in name and param.requires_grad:
+                print(f"Layer: {name}, Requires Grad: {param.requires_grad}")
             # if 'learned_embedding' in name:
             #     param.requires_grad = True 
             # else :
