@@ -134,9 +134,6 @@ class DFVQATask(BaseTask):
             overall_acc = vqa_scorer.accuracy["overall"]
             metrics["agg_metrics"] = overall_acc
             logging.info("Overall Accuracy is: %.02f\n" % overall_acc)
-            if mode == "test":
-                vqa_scorer.calculate_text_attribute_acc()
-                
 
 
         return metrics
