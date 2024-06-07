@@ -9,7 +9,6 @@ model:
   load_pretrained: True
 
   pretrained: "https://storage.googleapis.com/sfr-vision-language-research/LAVIS/models/InstructBLIP/instruct_blip_vicuna7b_trimmed.pth"
-  # finetuned: "/storage1/ruby/LAVIS/lavis/output/BLIP2/dd-vqa/20240423173-InstructBLIP/checkpoint_best.pth"
   
   # vit encoder
   image_size: 224

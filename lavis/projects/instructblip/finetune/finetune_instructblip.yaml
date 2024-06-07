@@ -5,7 +5,7 @@
 
 model:
   # arch: blip2_vicuna_instruct_textinv
-  arch: blip2_vicuna_instruct_mask_atts
+  arch: blip2_vicuna_instruct
   model_type: vicuna7b
   load_pretrained: True
   load_finetuned: False 
@@ -48,7 +48,7 @@ run:
   accum_grad_iters: 1
 
   seed: 42
-  output_dir: "output/BLIP2/mask"
+  output_dir: "output/BLIP2"
 
   amp: False
   resume_ckpt_path: null
