@@ -5,14 +5,14 @@ datasets:
       annotations:
         train:
           url: https://raw.githubusercontent.com/rorubyy/jsonfile/main/train.json
-          storage: /storage1/ruby/LAVIS/ExDF/ann/test/test-ip2p-explain.json
+          storage: /home/u2272230/ExDF/ann/train/train-hive-ex.json
         val:
           url: https://raw.githubusercontent.com/rorubyy/jsonfile/main/val.json
-          storage: /storage1/ruby/LAVIS/ExDF/ann/test/test-ip2p-explain.json   
+          storage: /home/u2272230/ExDF/ann/test/val-hive-v2.json 
         test:
-          url: https://raw.githubusercontent.com/rorubyy/jsonfile/main/test.json
-          storage: /storage1/ruby/LAVIS/ExDF/ann/test/test-ip2p-explain.json
+          url:  https://raw.githubusercontent.com/rorubyy/jsonfile/main/test.json
+          storage: /home/u2272230/ExDF/real.json
 
       images:
-        storage: /storage1/ruby/LAVIS/ExDF
+        storage: /home/u2272230/ExDF
 

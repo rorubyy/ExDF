@@ -13,6 +13,8 @@ import logging
 import string
 from packaging import version
 
+import torch.nn.functional as F
+
 import torch
 from torch.cuda.amp import autocast as autocast
 import torch.nn as nn
@@ -23,7 +25,6 @@ from lavis.common.registry import registry
 from lavis.models.blip2_models.blip2 import Blip2Base, disabled_train
 
 import cv2
-import matplotlib.pyplot as plt
 
 @registry.register_model("blip2_vicuna_instruct")
 class Blip2VicunaInstruct(Blip2Base):
@@ -122,7 +123,7 @@ class Blip2VicunaInstruct(Blip2Base):
         self._lemmatizer = None
 
         self.qformer_text_input = qformer_text_input
-
+        
     def concat_text_input_output(self, input_ids, input_atts, output_ids, output_atts):
         input_part_targets_len = []
         llm_tokens = {"input_ids": [], "attention_mask": []}
@@ -150,17 +151,17 @@ class Blip2VicunaInstruct(Blip2Base):
 
     def set_current_epoch(self, epoch):
         self.current_epoch = epoch
-        
-        
+
+      
     def forward(self, samples):
         # print('-----------------')
         # print(samples["text_input"])
         # print(samples["text_output"])
         # print('-----------------')
-
         image = samples["image"]
         with self.maybe_autocast():
             image_embeds = self.ln_vision(self.visual_encoder(image))
+
         image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(image.device)
 
         bs = image.size(0)
@@ -171,7 +172,7 @@ class Blip2VicunaInstruct(Blip2Base):
                 samples["text_input"],
                 padding='longest',
                 truncation=True,
-                max_length=50,
+                max_length=self.max_txt_len,
                 return_tensors="pt",
             ).to(image.device)
             query_atts = torch.ones(query_tokens.size()[:-1], dtype=torch.long).to(image.device)
@@ -193,8 +194,6 @@ class Blip2VicunaInstruct(Blip2Base):
                 encoder_attention_mask=image_atts,
                 return_dict=True,
             )
-        
-
 
         inputs_llm = self.llm_proj(query_output.last_hidden_state[:,:query_tokens.size(1),:])
         atts_llm = torch.ones(inputs_llm.size()[:-1], dtype=torch.long).to(image.device)
@@ -260,7 +259,7 @@ class Blip2VicunaInstruct(Blip2Base):
     def generate(
         self,
         samples,
-        use_nucleus_sampling=False,
+        use_nucleus_sampling=True,
         num_beams=5,
         max_length=256,
         min_length=1,
@@ -432,7 +431,7 @@ class Blip2VicunaInstruct(Blip2Base):
         output_text = self.generate(
             samples,
             num_beams=num_beams,
-            max_length=max_len,
+            max_length=150,
             min_length=min_len,
             length_penalty=length_penalty
         )

@@ -1,51 +1,59 @@
 import json
-from pycocoevalcap.bleu.bleu import Bleu
-from pycocoevalcap.cider.cider import Cider
-from pycocoevalcap.meteor.meteor import Meteor
-from pycocoevalcap.rouge.rouge import Rouge
 from pycocoevalcap.spice.spice import Spice
-from bert_score import score as bert_score
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-from bert_score import score
 
-
-def load_data(file_path, increment_id=False):
+def load_data(file_path):
     with open(file_path, "r") as f:
         data = json.load(f)
     return data
 
-
-def meteor(gts, res):
-    scorer = Meteor()
-    score, scores = scorer.compute_score(gts, res)
-    print("meter = %s" % score)
-
-
 def spice(gts, res):
     scorer = Spice()
     score, scores = scorer.compute_score(gts, res)
-    print("spice = %s" % score)
+    print("SPICE = %s" % score)
 
+def calculate_scores(fake_gts, real_gts, fake_res, real_res, dataset_name):
+    gts = {**fake_gts, **real_gts}
+    res = {**fake_res, **real_res}
+    print(f"Calculating scores for dataset {dataset_name}")
+    spice(gts, res)
 
 def main():
-    gt_files = "/storage1/ruby/thesis_dataset/ann/test/generation/random_text_input/ip2p-test.json"
-    ans_files = "/storage1/ruby/LAVIS/lavis/output/result/generation/multitask-random-classification-llminput.json"
+    gt_files = "/home/u2272230/ExDF/ann/test/test-hive.json"
+    ans_files = "/home/u2272230/deepfake_explanation/lavis/output/BLIP2/hive_mask_atts_v2/20240617160/result/test_vqa_result_rank0.json"
 
-    gts, res = {}, {}
-
-    data1 = load_data(gt_files)
-    data2 = load_data(ans_files)
-    question_ids1 = {item["question_id"] for item in data1}
-    question_ids2 = {item["question_id"] for item in data2}
-    common_ids = question_ids1 & question_ids2
-
-    gts = {item["question_id"]: [item["text_output"]] for item in data1 if item["question_id"] in common_ids}
-    res = {item["question_id"]: [item["answer"]] for item in data2 if item["question_id"] in common_ids}
+    gts_data = load_data(gt_files)
+    res_data = load_data(ans_files)
     
-    spice(gts, res)
-    meteor(gts, res)
+    gts = {}
+    res = {}
 
+    for item in gts_data:
+        question_id = item["question_id"]
+        dataset = item["dataset"]
+        if dataset not in gts:
+            gts[dataset] = {}
+        gts[dataset][question_id] = [item["text_output"]]
+
+    for item in res_data:
+        question_id = item["question_id"]
+        for dataset in gts.keys():
+            if question_id in gts[dataset]:
+                if dataset not in res:
+                    res[dataset] = {}
+                res[dataset][question_id] = [item["answer"]]
+                break
+
+    real_gts = gts.get("real", {})
+    real_res = res.get("real", {})
+
+    valid_datasets = {"idiff", "ip2p", "hive", "mfg"}
+
+    for dataset in gts.keys():
+        if dataset not in valid_datasets:
+            continue
+        fake_gts = gts[dataset]
+        fake_res = res.get(dataset, {})
+        calculate_scores(fake_gts, real_gts, fake_res, real_res, dataset)
 
 if __name__ == "__main__":
     main()

@@ -185,7 +185,6 @@ class Blip2VicunaInstructMaskAtts(Blip2Base):
 
         image = samples["image"]
         mask = samples["mask"]
-        weights = samples["weights"]
 
         with self.maybe_autocast():
             image_embeds = self.ln_vision(self.visual_encoder(image))
@@ -287,7 +286,7 @@ class Blip2VicunaInstructMaskAtts(Blip2Base):
                 labels=targets,
             )
 
-        loss = outputs.loss * weights
+        loss = outputs.loss
 
         return {"loss": loss}
 
@@ -499,7 +498,7 @@ class Blip2VicunaInstructMaskAtts(Blip2Base):
         output_text = self.generate(
             samples,
             num_beams=num_beams,
-            max_length=100,
+            max_length=150,
             min_length=min_len,
             length_penalty=length_penalty,
         )

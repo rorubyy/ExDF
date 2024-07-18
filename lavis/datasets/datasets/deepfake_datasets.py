@@ -12,7 +12,7 @@ import dlib
 
 def extract_landmarks(image):
     detector = dlib.get_frontal_face_detector()
-    predictor = dlib.shape_predictor("ExDF/shape_predictor_68_face_landmarks.dat")
+    predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
 
     gray = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
     rects = detector(gray, 1)
@@ -62,30 +62,34 @@ class DeepfakeDataset(BaseDataset):
 
         image_path = os.path.join(self.vis_root, ann["image"])
         image = Image.open(image_path).convert("RGB")
-        landmarks = extract_landmarks(image)
-        if landmarks:
-            face_head_mask = generate_face_and_head_mask(image, landmarks)
-            face_head_mask = torch.tensor(face_head_mask, dtype=torch.float32)
-            face_head_mask = torch.nn.functional.interpolate(
-                face_head_mask.unsqueeze(0).unsqueeze(0),
-                size=(224, 224),
-                mode="bilinear",
-            ).squeeze()
-        else:
-            face_head_mask = torch.ones((224, 224), dtype=torch.float32)
-
-        image = self.vis_processor(image)
         text_input = self.text_processor(ann["text_input"])
         text_output = self.text_processor(ann["text_output"])
-
-        weights = 0.1 if "all" in ann["attribute"] else 1.0
+        label = 'real' if 'real' in text_output else 'fake'
+        if label == 'real':
+            landmarks = extract_landmarks(image)
+            if landmarks:
+                face_head_mask = generate_face_and_head_mask(image, landmarks)
+                face_head_mask = torch.tensor(face_head_mask, dtype=torch.float32)
+                face_head_mask = torch.nn.functional.interpolate(
+                    face_head_mask.unsqueeze(0).unsqueeze(0),
+                    size=(224, 224),
+                    mode="bilinear",
+                ).squeeze()
+            else:
+                face_head_mask = torch.ones((224, 224), dtype=torch.float32)
+        else:
+            mask_path = os.path.join(self.vis_root, ann["mask_path"])
+            mask = Image.open(mask_path).convert("L")  # Assuming mask is a grayscale image
+            mask = mask.resize((224, 224), Image.BILINEAR)
+            face_head_mask = torch.tensor(np.array(mask), dtype=torch.float32) / 255.0
+        image = self.vis_processor(image)
 
         return {
             "image": image,
             "text_input": text_input,
             "text_output": text_output,
-            "weights": weights,
             "mask": face_head_mask.unsqueeze(0),
+            "label": label
         }
 
 
@@ -117,7 +121,6 @@ class DeepfakeEvalDataset(BaseDataset, __DisplMixin):
             ).squeeze()
         else:
             face_head_mask = torch.ones((224, 224), dtype=torch.float32)
-
 
         image = self.vis_processor(image)
         text_input = self.text_processor(ann["text_input"])

@@ -358,7 +358,7 @@ class Cunstom_VQAEval(VQAEval):
                 dataset_correct_counts[dataset]=0
                 dataset_total_counts[dataset]=0
             dataset_total_counts[dataset] += 1
-            if ("real" in resAns and "real" in gtAns) or ("fake" in resAns and "fake" in gtAns):
+            if ("real" in resAns and "real" in gtAns) or ("fake" in resAns and "fake" in gtAns) or ("no" in resAns and "fake" in gtAns) or ("yes" in resAns and "real" in gtAns) or ("no" in resAns and "no" in gtAns) or ("yes" in resAns and "yes" in gtAns):
                 dataset_correct_counts[dataset] += 1
             # if resAns == gtAns:
             #     dataset_correct_counts[dataset] += 1

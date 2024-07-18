@@ -13,7 +13,11 @@ from lavis.processors.randaugment import RandomAugment
 from omegaconf import OmegaConf
 from torchvision import transforms
 from torchvision.transforms.functional import InterpolationMode
-
+from PIL import Image, ImageFilter
+import random
+import io
+import cv2
+import numpy as np
 
 class BlipImageBaseProcessor(BaseProcessor):
     def __init__(self, mean=None, std=None):
@@ -247,11 +251,29 @@ class Blip2ImageTrainProcessor(BlipImageBaseProcessor):
                     interpolation=InterpolationMode.BICUBIC,
                 ),
                 transforms.RandomHorizontalFlip(),
+                transforms.RandomApply([transforms.Lambda(self.random_blur)], p=0.5),
+                transforms.RandomApply([transforms.Lambda(self.random_jpeg_compression)], p=0.5),
                 transforms.ToTensor(),
                 self.normalize,
             ]
         )
 
+    def random_blur(self, img):
+        img_cv = np.array(img)
+        if random.random() < 0.5:
+            sigma = random.uniform(0.0, 3.0)
+            img_cv = cv2.GaussianBlur(img_cv, (0, 0), sigma)
+        return Image.fromarray(img_cv)
+
+    def random_jpeg_compression(self, img):
+        if random.random() < 0.5:
+            buffer = io.BytesIO()
+            quality = random.randint(30, 100)
+            img.save(buffer, format='JPEG', quality=quality)
+            buffer.seek(0)
+            img = Image.open(buffer)
+        return img
+    
     def __call__(self, item):
         return self.transform(item)
 

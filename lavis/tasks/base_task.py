@@ -229,29 +229,6 @@ class BaseTask:
             else:
                 loss.backward() 
 
-            # print("-----Before Clipped gradients------")
-            # for name, param in model.named_parameters():
-            #     if 'mask_decoder' in name and param.grad is not None:
-            #         print(f"Clipped gradient of {name}: - min: {param.grad.min().item()}, max: {param.grad.max().item()}, mean: {param.grad.mean().item()}, std: {param.grad.std().item()}")
-
-
-                          
-            # for param in mask_decoder_params:
-            #     if param.grad is not None:
-            #         grad_norm = param.grad.data.norm()
-            #         if grad_norm > 1e8:
-            #             param.grad.data = F.normalize(param.grad.data, p=2, dim=0) * 1e8
-            #         elif grad_norm < 1e-8:
-            #             param.grad.data = F.normalize(param.grad.data, p=2, dim=0) * 1e-8
-            
-            # print("-----Clipped gradients-----")
-
-            # for name, param in model.named_parameters():
-            #     if 'mask_decoder' in name and param.grad is not None:
-            #         print(f"Clipped gradient of {name} - min: {param.grad.min().item():.10f}, max: {param.grad.max().item():.10f}, mean: {param.grad.mean().item():.10f}, std: {param.grad.std().item():.10f}")
-            #     elif 'mask_decoder' in name and param.grad is None:
-            #         print(f"Gradient of {name} is None")
-            # update gradients every accum_grad_iters iterations
             if (i + 1) % accum_grad_iters == 0:
                 if use_amp:
                     scaler.step(optimizer)

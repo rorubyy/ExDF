@@ -41,6 +41,7 @@ from lavis.models.blip2_models.blip2_t5_instruct import Blip2T5Instruct
 from lavis.models.blip2_models.blip2_vicuna_instruct import Blip2VicunaInstruct
 from lavis.models.blip2_models.blip2_vicuna_instruct_mask import Blip2VicunaInstructMask
 from lavis.models.blip2_models.blip2_vicuna_instruct_maskatts import Blip2VicunaInstructMaskAtts
+from lavis.models.blip2_models.blip2_vicuna_instruct_maskatts_cla import Blip2VicunaInstructMaskAttsCla
 
 from lavis.models.blip_diffusion_models.blip_diffusion import BlipDiffusion
 
@@ -85,6 +86,7 @@ __all__ = [
     "Blip2T5Instruct",
     "Blip2VicunaInstruct",
     "Blip2VicunaInstructMask",
+    "Blip2VicunaInstructMaskAtts",
     "PNPVQA",
     "Img2PromptVQA",
     "PNPUnifiedQAv2FiD",
@@ -92,7 +94,7 @@ __all__ = [
     "VisionTransformerEncoder",
     "XBertLMHeadDecoder",
     "GPTDialogue",
-    "Blip2VicunaInstructMaskAtts",
+    "Blip2VicunaInstructMaskAttsCla"
 ]
 
 

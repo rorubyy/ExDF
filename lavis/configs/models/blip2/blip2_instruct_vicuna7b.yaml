@@ -9,8 +9,8 @@ model:
   load_pretrained: True
 
   pretrained: "https://storage.googleapis.com/sfr-vision-language-research/LAVIS/models/InstructBLIP/instruct_blip_vicuna7b_trimmed.pth"
-  # finetuned: "/storage1/ruby/LAVIS/lavis/output/BLIP2/dd-vqa/20240423173-InstructBLIP/checkpoint_best.pth"
-  
+
+
   # vit encoder
   image_size: 224
   drop_path_rate: 0
@@ -22,7 +22,7 @@ model:
   num_query_token: 32
 
   # path to Vicuna checkpoint
-  llm_model: "/storage1/ruby/LAVIS/llm/vicuna-7b/snapshots/9d8eea215e00b388a22e8f050768ea8911d41f1d"
+  llm_model: "/home/u2272230/deepfake_explanation/9d8eea215e00b388a22e8f050768ea8911d41f1d"
 
   # generation configs
   prompt: ""
