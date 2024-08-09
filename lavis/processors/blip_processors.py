@@ -183,6 +183,7 @@ class BlipImageTrainProcessor(BlipImageBaseProcessor):
     def __call__(self, item):
         return self.transform(item)
 
+
     @classmethod
     def from_config(cls, cfg=None):
         if cfg is None:
@@ -215,6 +216,8 @@ class BlipImageEvalProcessor(BlipImageBaseProcessor):
                 transforms.Resize(
                     (image_size, image_size), interpolation=InterpolationMode.BICUBIC
                 ),
+                # transforms.Lambda(self.random_jpeg_compression),
+                transforms.Lambda(self.random_blur),
                 transforms.ToTensor(),
                 self.normalize,
             ]
@@ -222,6 +225,20 @@ class BlipImageEvalProcessor(BlipImageBaseProcessor):
 
     def __call__(self, item):
         return self.transform(item)
+    
+    def random_jpeg_compression(self, img):
+        buffer = io.BytesIO()
+        quality = 100
+        img.save(buffer, format='JPEG', quality=quality)
+        buffer.seek(0)
+        img = Image.open(buffer)
+        return img
+    
+    def random_blur(self, img):
+        img_cv = np.array(img)
+        sigma = 0.0
+        img_cv = cv2.GaussianBlur(img_cv, (0, 0), sigma)
+        return Image.fromarray(img_cv)
 
     @classmethod
     def from_config(cls, cfg=None):

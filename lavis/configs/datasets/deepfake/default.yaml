@@ -5,14 +5,14 @@ datasets:
       annotations:
         train:
           url: https://raw.githubusercontent.com/rorubyy/jsonfile/main/train.json
-          storage: /home/u2272230/ExDF/ann/train/train-hive-ex.json
+          storage: ExDF/ann/train/train.json
         val:
           url: https://raw.githubusercontent.com/rorubyy/jsonfile/main/val.json
-          storage: /home/u2272230/ExDF/ann/test/val-hive-v2.json 
+          storage: ExDF/ann/test/val.json 
         test:
           url:  https://raw.githubusercontent.com/rorubyy/jsonfile/main/test.json
-          storage: /home/u2272230/ExDF/real.json
+          storage: ExDF/ann/test/test.json
 
       images:
-        storage: /home/u2272230/ExDF
+        storage: ExDF
 

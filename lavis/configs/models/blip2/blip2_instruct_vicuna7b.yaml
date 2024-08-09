@@ -22,7 +22,7 @@ model:
   num_query_token: 32
 
   # path to Vicuna checkpoint
-  llm_model: "/home/u2272230/deepfake_explanation/9d8eea215e00b388a22e8f050768ea8911d41f1d"
+  llm_model: "deepfake_explanation/llm"
 
   # generation configs
   prompt: ""

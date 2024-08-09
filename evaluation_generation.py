@@ -18,9 +18,8 @@ def calculate_scores(fake_gts, real_gts, fake_res, real_res, dataset_name):
     spice(gts, res)
 
 def main():
-    gt_files = "/home/u2272230/ExDF/ann/test/test-hive.json"
-    ans_files = "/home/u2272230/deepfake_explanation/lavis/output/BLIP2/hive_mask_atts_v2/20240617160/result/test_vqa_result_rank0.json"
-
+    gt_files = "ExDF/ann/test/test-hive.json"
+    ans_files = "lavis/output/BLIP2/ours/20240617160/result/test_vqa_result_rank0.json"
     gts_data = load_data(gt_files)
     res_data = load_data(ans_files)
     
